@@ -121,6 +121,57 @@ Usage:
 /ralphtemplate Build a REST API with auth, tests, and deployment
 ```
 
+### Token-Saving Tip: Write Prompts to .txt Files
+
+Ralph loop prompts can get long — especially with Boris rules embedded. Instead of pasting the entire prompt inline (which burns prompt tokens every iteration), write it to a `.txt` file **outside your project directory** and reference it:
+
+```bash
+# 1. Generate the prompt with /ralphtemplate, then save the output to a file
+#    Store it OUTSIDE your project dir so it doesn't pollute your repo
+cat > ~/prompts/auth-system-build.txt << 'EOF'
+[paste the /ralphtemplate output here]
+EOF
+
+# 2. Use the .txt content inside the ralph-loop quotes
+/ralph-loop "$(cat ~/prompts/auth-system-build.txt)" \
+  --max-iterations 30 --completion-promise "DONE"
+```
+
+**Why outside your project?** Keeping prompt files in `~/prompts/` or similar avoids cluttering your git repo, prevents accidental commits of task-specific prompts, and keeps them reusable across projects.
+
+### Automate Prompt Generation with Haiku
+
+For even more efficiency, use a lightweight Haiku agent to generate and write the `.txt` prompt files for you. This keeps the expensive model (Opus/Sonnet) focused on building while Haiku handles prompt authoring at a fraction of the cost:
+
+```bash
+# In your Claude Code session, spawn a Haiku agent to write the prompt file:
+```
+
+```
+Use the Agent tool with model: "haiku" to generate a ralph-loop prompt.
+
+Example agent call:
+  subagent_type: "general-purpose"
+  model: "haiku"
+  prompt: |
+    Generate a ralph-loop orchestrator prompt for this task: [your-task].
+    Use the /ralphtemplate format: 3 roles (Builder, Challenger, Proxy),
+    plain text only (NO markdown: no ```, ##, **, {}, or () in structure),
+    ALL CAPS for emphasis, numbered lists only.
+    Write the output to ~/prompts/[descriptive-name].txt
+```
+
+Then feed the generated file into your loop:
+```bash
+/ralph-loop "$(cat ~/prompts/[descriptive-name].txt)" \
+  --max-iterations 30 --completion-promise "DONE"
+```
+
+This pattern means:
+- **Haiku** writes the prompt (~$0.001) instead of Opus composing it inline (~$0.05+)
+- The prompt lives in a reusable `.txt` file you can tweak and re-run
+- Your main session's context window stays clean — no giant prompt strings eating tokens on every iteration
+
 ## The Hierarchical CLAUDE.md Setup
 
 This system uses `@import` directives to create a layered configuration:
