@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ralph Loop System Architecture</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0e17;
+    color: #e0e6ed;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    padding: 24px 40px;
+    width: 1200px;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 26px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    background: linear-gradient(135deg, #00d4ff, #7b61ff, #ff6b9d);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle {
+    text-align: center;
+    color: #6b7a8d;
+    font-size: 11px;
+    margin-bottom: 18px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .main-flow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  .arrow-down {
+    width: 2px; height: 16px;
+    background: linear-gradient(to bottom, #00d4ff, #7b61ff);
+    position: relative;
+  }
+  .arrow-down::after {
+    content: ''; position: absolute; bottom: -5px; left: -4px;
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+    border-top: 6px solid #7b61ff;
+  }
+  .arrow-down.green { background: linear-gradient(to bottom, #44ff88, #22aa55); }
+  .arrow-down.green::after { border-top-color: #22aa55; }
+
+  /* Top row: User + Command side by side */
+  .top-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .user-box {
+    background: linear-gradient(135deg, #1a2332, #1e2a3a);
+    border: 2px solid #00d4ff;
+    border-radius: 10px;
+    padding: 10px 24px;
+    text-align: center;
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.12);
+  }
+  .user-box .label { font-size: 16px; font-weight: 600; color: #00d4ff; }
+  .user-box .desc { font-size: 11px; color: #8899aa; margin-top: 2px; }
+
+  .top-arrow {
+    color: #7b61ff;
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  .command-box {
+    background: linear-gradient(135deg, #1a1a2e, #252545);
+    border: 2px solid #7b61ff;
+    border-radius: 10px;
+    padding: 10px 20px;
+    text-align: center;
+    box-shadow: 0 0 15px rgba(123, 97, 255, 0.12);
+  }
+  .command-box .cmd {
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: #b8a9ff;
+  }
+  .command-box .cmd-desc {
+    font-size: 10px;
+    color: #7b7a9d;
+    margin-top: 2px;
+  }
+
+  /* Phase containers */
+  .phase {
+    background: linear-gradient(135deg, #111827, #151d2b);
+    border: 1px solid #2a3545;
+    border-radius: 12px;
+    padding: 14px 18px;
+    width: 1100px;
+    position: relative;
+  }
+  .phase-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+  }
+  .phase-num {
+    background: linear-gradient(135deg, #7b61ff, #5b3fff);
+    color: white; font-weight: 700; font-size: 11px;
+    padding: 3px 10px; border-radius: 20px;
+  }
+  .phase-title { font-size: 15px; font-weight: 600; color: #c8d0dc; }
+
+  .roles-row { display: flex; gap: 12px; justify-content: center; }
+
+  .role-card {
+    flex: 1; border-radius: 10px; padding: 12px 14px;
+    position: relative; min-height: 100px;
+  }
+  .role-card.challenger {
+    background: linear-gradient(135deg, #1a0a0a, #2a1515);
+    border: 1px solid #ff4444;
+  }
+  .role-card.proxy {
+    background: linear-gradient(135deg, #0a1a0a, #152a15);
+    border: 1px solid #44ff88;
+  }
+  .role-card.builder {
+    background: linear-gradient(135deg, #0a0a1a, #15152a);
+    border: 1px solid #4488ff;
+  }
+
+  .role-name {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; margin-bottom: 6px;
+  }
+  .challenger .role-name { color: #ff6666; }
+  .proxy .role-name { color: #66ffaa; }
+  .builder .role-name { color: #66aaff; }
+
+  .role-card ul { list-style: none; padding: 0; }
+  .role-card li {
+    font-size: 11px; color: #99aabb; padding: 2px 0 2px 14px;
+    position: relative;
+  }
+  .role-card li::before {
+    content: ''; position: absolute; left: 0; top: 7px;
+    width: 5px; height: 5px; border-radius: 50%;
+  }
+  .challenger li::before { background: #ff4444; }
+  .proxy li::before { background: #44ff88; }
+  .builder li::before { background: #4488ff; }
+
+  /* Challenger <-> Proxy exchange center column */
+  .exchange-col {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; min-width: 100px; gap: 6px;
+    position: relative;
+  }
+  .ex-row {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 10px; color: #6b7a8d; white-space: nowrap;
+  }
+  .ex-line {
+    width: 24px; height: 2px;
+    background: linear-gradient(to right, #ff4444, #44ff88);
+  }
+  .ex-line.rev { background: linear-gradient(to left, #ff4444, #44ff88); }
+  .ex-loop-label {
+    font-size: 9px; color: #ffcc44; font-weight: 700;
+    text-align: center; letter-spacing: 0.5px;
+    background: rgba(255, 204, 68, 0.08);
+    border: 1px solid rgba(255, 204, 68, 0.2);
+    border-radius: 4px; padding: 2px 6px;
+    margin-top: 2px;
+  }
+
+  /* Builder loop container */
+  .loop-container {
+    display: flex; align-items: stretch; gap: 0; width: 1100px;
+  }
+  .loop-main {
+    flex: 1;
+    background: linear-gradient(135deg, #111827, #151d2b);
+    border: 1px solid #2a3545;
+    border-radius: 12px 0 0 12px;
+    padding: 14px 18px;
+    border-right: none;
+  }
+  .loop-sidebar {
+    width: 190px;
+    background: linear-gradient(135deg, #1a1420, #201828);
+    border: 1px solid #ff6b9d;
+    border-radius: 0 12px 12px 0;
+    padding: 12px 14px;
+    display: flex; flex-direction: column; justify-content: center;
+    box-shadow: 0 0 15px rgba(255, 107, 157, 0.08);
+  }
+  .loop-sidebar .sidebar-title {
+    color: #ff6b9d; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;
+  }
+  .loop-sidebar .hook-step {
+    font-size: 10px; color: #aa8899; padding: 2px 0 2px 12px;
+    position: relative;
+  }
+  .loop-sidebar .hook-step::before {
+    content: ''; position: absolute; left: 0; top: 6px;
+    width: 5px; height: 5px; border-radius: 50%; background: #ff6b9d;
+  }
+
+  .iteration-format {
+    background: #0d1117; border: 1px solid #2a3545;
+    border-radius: 6px; padding: 8px 12px;
+    font-family: 'Courier New', monospace; font-size: 10px;
+    color: #8899aa; margin-top: 8px;
+  }
+  .iter-label { color: #ffcc44; font-weight: 700; }
+  .iter-pass { color: #44ff88; }
+
+  /* Loop-back arrow */
+  .loop-back {
+    position: relative; width: 1100px; height: 36px;
+  }
+  .loop-back-line {
+    position: absolute; right: 94px; top: 0;
+    width: 2px; height: 36px;
+    background: linear-gradient(to bottom, #ff6b9d, #ff6b9d88);
+  }
+  .loop-back-horiz {
+    position: absolute; right: 94px; top: 34px;
+    width: 460px; height: 2px;
+    background: linear-gradient(to left, #ff6b9d88, #ff6b9d);
+  }
+  .loop-back-up {
+    position: absolute; right: 554px; top: 0;
+    width: 2px; height: 36px;
+    background: linear-gradient(to top, #ff6b9d, #ff6b9d44);
+  }
+  .loop-back-up::after {
+    content: ''; position: absolute; top: -5px; left: -4px;
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+    border-bottom: 7px solid #ff6b9d;
+  }
+  .loop-label {
+    position: absolute; right: 210px; top: 10px;
+    font-size: 10px; color: #ff6b9d; font-weight: 600;
+    letter-spacing: 1px; text-transform: uppercase;
+    background: #0a0e17; padding: 1px 6px;
+  }
+
+  /* Completion */
+  .completion-box {
+    background: linear-gradient(135deg, #0a2a1a, #153520);
+    border: 2px solid #44ff88; border-radius: 10px;
+    padding: 10px 24px; text-align: center;
+    box-shadow: 0 0 20px rgba(68, 255, 136, 0.12);
+    width: 1100px;
+  }
+  .completion-box .label {
+    font-size: 14px; font-weight: 600; color: #44ff88;
+    font-family: 'Courier New', monospace;
+  }
+  .completion-items {
+    display: flex; gap: 16px; justify-content: center; margin-top: 6px;
+  }
+  .completion-item {
+    font-size: 10px; color: #88bbaa; padding: 3px 10px;
+    background: rgba(68, 255, 136, 0.08);
+    border-radius: 5px; border: 1px solid rgba(68, 255, 136, 0.15);
+  }
+
+  /* Tip */
+  .tip-box {
+    background: linear-gradient(135deg, #1a1a10, #252518);
+    border: 1px solid #ffcc44; border-radius: 10px;
+    padding: 10px 18px; width: 1100px; margin-top: 6px;
+    display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 0 10px rgba(255, 204, 68, 0.06);
+  }
+  .tip-icon { font-size: 18px; flex-shrink: 0; }
+  .tip-content .tip-title {
+    font-size: 11px; font-weight: 700; color: #ffcc44; margin-bottom: 2px;
+  }
+  .tip-content .tip-text {
+    font-size: 10px; color: #aa9955; line-height: 1.4;
+  }
+  .tip-content code {
+    background: rgba(255, 204, 68, 0.1); padding: 0 4px;
+    border-radius: 3px; font-size: 10px; color: #ddbb66;
+  }
+</style>
+</head>
+<body>
+
+<h1>Ralph Loop System Architecture</h1>
+<p class="subtitle">Antagonistic Review + Proxy Decisions + Self-Iterating Loops</p>
+
+<div class="main-flow">
+
+  <!-- User -> Command (horizontal) -->
+  <div class="top-row">
+    <div class="user-box">
+      <div class="label">User Has a Goal</div>
+      <div class="desc">Describes what to build using test-driven development</div>
+    </div>
+    <div class="top-arrow">&#10132;</div>
+    <div class="command-box">
+      <div class="cmd">/ralphtemplate "User describes goal using TDD"</div>
+      <div class="cmd-desc">Generates plain-text orchestrator prompt (no markdown - prevents Boris loop breakout)</div>
+    </div>
+  </div>
+
+  <div class="arrow-down"></div>
+
+  <!-- Phase 1: Challenger <-> Proxy with feedback loop -->
+  <div class="phase">
+    <div class="phase-header">
+      <span class="phase-num">PHASE 1</span>
+      <span class="phase-title">Challenge &amp; Negotiate (loops until all answers reach 70%+ confidence)</span>
+    </div>
+    <div class="roles-row">
+      <div class="role-card challenger">
+        <div class="role-name">Challenger (Boris Antagonist)</div>
+        <ul>
+          <li>Identifies 5+ ambiguities &amp; assumptions</li>
+          <li>Proposes 2-3 approaches with tradeoffs</li>
+          <li>Raises architectural risks</li>
+          <li>Checks naming conflicts &amp; duplicates</li>
+          <li>Blocks progress until satisfied</li>
+          <li>Never asks the user directly</li>
+        </ul>
+      </div>
+
+      <div class="exchange-col">
+        <div class="ex-row">
+          <span>questions</span>
+          <div class="ex-line"></div>
+        </div>
+        <div class="ex-row">
+          <div class="ex-line rev"></div>
+          <span>answers</span>
+        </div>
+        <div class="ex-loop-label">REPEATS UNTIL<br/>CONFIDENCE &ge; 70%</div>
+        <div class="ex-row">
+          <span>&lt; 70%</span>
+          <div class="ex-line rev"></div>
+        </div>
+        <div class="ex-row">
+          <div class="ex-line"></div>
+          <span>re-research</span>
+        </div>
+      </div>
+
+      <div class="role-card proxy">
+        <div class="role-name">Proxy (Human Stand-in)</div>
+        <ul>
+          <li>Researches codebase, docs, conventions</li>
+          <li>Reads CLAUDE.md, LEARNINGS.md, patterns</li>
+          <li>Answers with best judgment + confidence %</li>
+          <li>If confidence &lt; 70%: re-researches deeper</li>
+          <li>Submits answer back to Challenger</li>
+          <li>Low-confidence decisions flagged REVIEWABLE</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down"></div>
+
+  <!-- Phase 2: Builder Loop -->
+  <div class="loop-container">
+    <div class="loop-main">
+      <div class="phase-header">
+        <span class="phase-num">PHASE 2</span>
+        <span class="phase-title">Build &amp; Iterate (Ralph Loop)</span>
+      </div>
+      <div class="roles-row">
+        <div class="role-card builder" style="flex: 2;">
+          <div class="role-name">Builder (Test-Driven)</div>
+          <ul>
+            <li>Writes tests first, expects failures at current stage</li>
+            <li>Implements iteratively, tests after each change</li>
+            <li>Logs: what failed, root cause, fix applied, result</li>
+            <li>Max N iterations before escalating</li>
+            <li>Writes brief retrospective each iteration</li>
+          </ul>
+        </div>
+        <div class="role-card challenger" style="flex: 1;">
+          <div class="role-name">Challenger Reviews</div>
+          <ul>
+            <li>Reviews after each milestone</li>
+            <li>Checks edge cases &amp; security</li>
+            <li>Checks performance at scale</li>
+            <li>Can force redesign</li>
+          </ul>
+        </div>
+      </div>
+      <div class="iteration-format">
+        <span class="iter-label">Iteration 3</span> | Status: Auth middleware rewritten
+        | Root Cause: Token validation missing refresh check
+        | Fix: Added refresh token rotation | Result: <span class="iter-pass">PASS</span>
+      </div>
+    </div>
+    <div class="loop-sidebar">
+      <div class="sidebar-title">Stop Hook Engine</div>
+      <div class="hook-step">Claude tries to exit</div>
+      <div class="hook-step">Hook reads transcript</div>
+      <div class="hook-step">Checks for &lt;promise&gt; tag</div>
+      <div class="hook-step">No match: blocks exit</div>
+      <div class="hook-step">Feeds same prompt back</div>
+      <div class="hook-step">Increments iteration</div>
+      <div class="hook-step">Prepends learnings step</div>
+      <div class="hook-step">Loop continues</div>
+    </div>
+  </div>
+
+  <!-- Loop-back arrow -->
+  <div class="loop-back">
+    <div class="loop-back-line"></div>
+    <div class="loop-back-horiz"></div>
+    <div class="loop-back-up"></div>
+    <div class="loop-label">LOOP UNTIL PROMISE MET</div>
+  </div>
+
+  <!-- Phase 3: Completion -->
+  <div class="phase" style="border-color: #44ff8844;">
+    <div class="phase-header">
+      <span class="phase-num" style="background: linear-gradient(135deg, #22aa55, #118844);">PHASE 3</span>
+      <span class="phase-title">Verify &amp; Complete</span>
+    </div>
+    <div class="roles-row">
+      <div class="role-card builder" style="flex: 1; min-height: 70px;">
+        <div class="role-name">Final Verification</div>
+        <ul>
+          <li>All tests pass end-to-end</li>
+          <li>Unknown impacts disclosed</li>
+        </ul>
+      </div>
+      <div class="role-card challenger" style="flex: 1; min-height: 70px;">
+        <div class="role-name">Final Review</div>
+        <ul>
+          <li>Validates completion criteria</li>
+          <li>Approves for delivery</li>
+        </ul>
+      </div>
+      <div class="role-card proxy" style="flex: 1; min-height: 70px;">
+        <div class="role-name">Consolidation</div>
+        <ul>
+          <li>Extracts durable learnings</li>
+          <li>Updates docs, deletes temp files</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down green"></div>
+
+  <!-- Done -->
+  <div class="completion-box">
+    <div class="label">&lt;promise&gt;DONE&lt;/promise&gt;</div>
+    <div class="completion-items">
+      <div class="completion-item">Results in plain language</div>
+      <div class="completion-item">REVIEWABLE decisions flagged</div>
+      <div class="completion-item">Learnings consolidated</div>
+      <div class="completion-item">Temp files deleted</div>
+    </div>
+  </div>
+
+  <!-- Tip -->
+  <div class="tip-box">
+    <div class="tip-icon">💡</div>
+    <div class="tip-content">
+      <div class="tip-title">Token-Saving Tip</div>
+      <div class="tip-text">
+        Write prompts to <code>.txt</code> files outside your project dir &rarr; <code>$(cat ~/prompts/task.txt)</code> in the ralph-loop command.
+        Use <code>model: "haiku"</code> agent to generate prompt files at ~$0.001 instead of Opus inline at ~$0.05+.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

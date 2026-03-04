@@ -1,6 +1,7 @@
 # Claude Code temp files
 .claude/
 *.local.md
+.playwright-mcp/
 
 # Original unsanitized files
 .originals/
