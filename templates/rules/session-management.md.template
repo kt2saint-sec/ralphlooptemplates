@@ -1,0 +1,56 @@
+# Session Management & CLI
+
+## Extended Thinking Triggers
+
+| Trigger        | Effect                    |
+| -------------- | ------------------------- |
+| "think"        | Standard analysis         |
+| "think hard"   | Extended consideration    |
+| "think harder" | Deep multi-angle analysis |
+| "ultrathink"   | Maximum thinking budget   |
+
+## Skill Loading
+
+**Progressive Disclosure:**
+
+- Skills load context incrementally
+- Use `/skill` command to invoke installed skills
+
+**Anthropic Official Skills:**
+
+```bash
+/plugin marketplace add anthropics/skills
+/plugin install document-skills@anthropic-agent-skills
+/plugin install frontend-design@anthropic-agent-skills
+```
+
+**Creating Custom Skills:**
+
+```bash
+~/.claude/skills/my-skill/SKILL.md
+```
+
+## Running Multiple Sessions
+
+**Separate Directory Sessions:**
+
+```bash
+cd /path/to/project && claude
+```
+
+**Git Worktrees:**
+
+```bash
+git worktree add ../project-feature -b feature-name
+cd ../project-feature && claude
+```
+
+## Advanced CLI Flags
+
+- `--dangerously-skip-permissions`: Skip permission prompts (CAUTION)
+- `--verbose`: Detailed logging
+- `--model sonnet`: Start with specific model
+- `--continue`: Resume most recent conversation
+- `--allowedTools "Bash,Read,Write"`: Pre-approve tools
+- `--max-turns N`: Limit agentic turns
+- `--print`: Non-interactive mode

@@ -1,0 +1,52 @@
+# Available Specialized Agents
+
+Use Task tool with appropriate subagent_type for complex work.
+
+## Core Development
+
+- **backend-dev-expert**: [Your backend framework], database, AI/ML, image processing
+- **frontend-development-specialist**: [Your frontend framework], UI, forms, state management
+- **testing-agent**: Unit/integration/E2E tests, coverage, flaky fixes
+- **debugging-agent**: Bug investigation, root cause analysis, tracing
+
+## Infrastructure
+
+- **devops-specialist**: Docker, CI/CD, deployment, Nginx
+- **security-specialist**: Security audits, hardening, vulnerabilities, compliance
+- **system-infrastructure**: Network, VLANs, GPU setup, VPN
+
+## Deployment
+
+- **deployment-coordinator**: [Your hosting platforms] deployments, CI/CD generation, rollback
+
+## Productivity
+
+- **orchestrator-agent**: Complex multi-workstream projects (3+ parallel tasks)
+- **doc-generator**: Technical docs, error logging, portfolio projects
+
+## Built-in
+
+- **Explore**: Fast codebase exploration
+- **Plan**: Research and planning
+
+## Quick Selection Guide
+
+| Task Type                | Agent                            |
+| ------------------------ | -------------------------------- |
+| API endpoint with auth   | backend-dev-expert               |
+| Frontend form validation | frontend-development-specialist  |
+| Random test failures     | testing-agent or debugging-agent |
+| Docker deployment        | devops-specialist                |
+| Security audit           | security-specialist              |
+| Network/GPU setup        | system-infrastructure            |
+
+## Code Pattern References
+
+Agents reference external pattern files for code examples:
+
+- `~/.claude/agent-references/backend-patterns.md`
+- `~/.claude/agent-references/frontend-patterns.md`
+- `~/.claude/agent-references/devops-patterns.md`
+- `~/.claude/agent-references/testing-patterns.md`
+
+**When to use agents**: Complex tasks >15 minutes, systematic workflows, specialized domain expertise.

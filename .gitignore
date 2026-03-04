@@ -1,0 +1,17 @@
+# Claude Code temp files
+.claude/
+*.local.md
+
+# Original unsanitized files
+.originals/
+challenge-workflow-starthere.txt
+github-ci-workers.txt
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~

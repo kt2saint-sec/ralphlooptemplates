@@ -1,0 +1,63 @@
+Ralph Loop CI/CD Debugging Example
+====================================
+
+This is a sanitized example showing how to use /ralph-loop for debugging
+CI workflow failures where local tests pass but CI fails.
+
+Example Invocation
+-------------------
+
+/ralph-loop:ralph-loop "The last commit to the remote repo was tested
+and passed all tests during development, yet the GitHub CI workflow
+run/test suite workflow run failed.
+
+The goal is to ensure the test suite and CI do not have failures.
+Previous session analysis gave a summary of issues, yet we want to
+verify regardless that the issues are either code-based or GitHub-based.
+
+Ensure to identify whether the errors with the CI and test suite
+workflow are due to the GitHub test environment or the code itself
+(most likely GitHub test environment differences).
+
+Use the most optimal agents at all times to review the code and tests
+for the remote repo.
+
+Before any PR or merge request:
+- Interrogate on design choices:
+  - Why did you choose this approach over [alternative]?
+  - What edge cases does this handle? What doesn't it handle?
+  - How does this affect performance/memory/security?
+  - What happens if [failure scenario]?
+- Block the PR until satisfactory answers are provided
+- Document the Q&A in the PR description
+
+Proof of Functionality Required:
+- Verify the CI workflow run passes due to the software code being
+  correct, not eliminating tests to make it pass
+- Show diff behavior between current state and changes
+- Provide evidence: test results, logs, or terminal output
+- If the proper workflows are found to not exist, create them first
+
+Elegant Solution Protocol:
+- After completing a first-pass implementation, pause and evaluate
+- If mediocre: scrap and rebuild using accumulated context
+
+Unknown Impact Disclosure:
+- Files touched but not fully tested
+- Dependencies that may have changed behavior
+- Areas that might break but weren't verified
+
+Format: ## Potential Risks Not Verified:
+- [Component]: [Why it might break] -> [Plan to address]
+- [Integration]: [Assumption made] -> [Verification needed]"
+  --max-iterations 40 --completion-promise "DONE"
+
+
+Why This Pattern Works
+=======================
+
+1. The prompt explicitly tells the agent NOT to eliminate tests to pass
+2. The Boris rules force the agent to justify every change
+3. The Unknown Impact Disclosure catches env-specific assumptions
+4. High iteration count (40) gives room for CI round-trips
+5. The agent must prove the fix works in CI, not just locally

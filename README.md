@@ -1,0 +1,308 @@
+# Ralph Loop Templates
+
+A Claude Code workflow system combining **antagonistic review**, **proxy decision-making**, and **self-iterating development loops** to build software with minimal human intervention while maintaining quality.
+
+## What This Is
+
+This repo contains the complete prompt engineering system behind the **Ralph Loop** — a self-referential development methodology for Claude Code where:
+
+1. A **Challenger** (Boris Antagonist) interrogates requirements before any code is written
+2. A **Proxy** researches answers instead of asking the human, keeping the loop running
+3. A **Builder** implements iteratively, with each iteration capturing learnings
+4. A **stop hook** prevents session exit, feeding output back as input to create a self-improving loop
+
+The result: you describe a goal, walk away, and come back to working software with documented decision trails.
+
+## Architecture
+
+```
+User
+  |
+  v
+/ralphtemplate "Build [your-goal]"
+  |
+  v
++--------------------------------------------------+
+|  ORCHESTRATOR (delegates, never codes)            |
+|                                                   |
+|  Phase 1: CHALLENGER <---> PROXY                  |
+|    |  Identifies 5+ ambiguities     Researches    |
+|    |  Proposes 2-3 approaches       codebase,     |
+|    |  Raises objections             docs, and     |
+|    |  Asks hard questions           conventions   |
+|    |                                to answer     |
+|    |                                questions     |
+|    |                                (never asks   |
+|    v                                the user)     |
+|                                                   |
+|  Phase 2: BUILDER (Ralph Loop)                    |
+|    |  Implements solution                         |
+|    |  Tests each iteration                        |
+|    |  Logs: what failed, root cause, fix, result  |
+|    |  CHALLENGER reviews after each milestone     |
+|    v                                              |
+|                                                   |
+|  Phase 3: VERIFICATION                            |
+|    |  All tests pass                              |
+|    |  CHALLENGER does final review                |
+|    |  Unknown impacts disclosed                   |
+|    v                                              |
+|                                                   |
+|  Phase 4: COMPLETION                              |
+|    |  Results in plain language                    |
+|    |  REVIEWABLE decisions flagged                 |
+|    |  Learnings consolidated -> permanent docs     |
+|    |  Temp files deleted                          |
+|    v                                              |
+|  <promise>DONE</promise>                          |
++--------------------------------------------------+
+```
+
+## The Three Patterns
+
+### 1. Boris Antagonist Method
+
+**What**: Challenge every requirement before writing code. Named after Boris Cherny's approach to rigorous software development.
+
+**Why**: Most AI coding failures happen because requirements were ambiguous, not because the code was wrong. The Challenger catches these before a single line is written.
+
+**Commands**:
+- `/boris-challenge` — Identify 5+ ambiguities, propose 2-3 approaches, wait for approval
+- `/grill-me` — Staff engineer code review after implementation (scores answers 1-5, requires avg >= 4)
+- `/prove-it` — Demand evidence that changes work (no code review, natural language proof)
+
+### 2. Proxy Human-in-the-Loop
+
+**What**: Instead of asking the user questions (which breaks the loop), a Proxy subagent researches the codebase, reads CLAUDE.md/LEARNINGS.md, and makes informed decisions.
+
+**Why**: Traditional human-in-the-loop stops the automation. The Proxy keeps things moving while flagging low-confidence decisions (below 70%) as `REVIEWABLE` for the user to check later.
+
+**How it works**:
+1. Challenger raises a question (e.g., "Should auth use JWT or sessions?")
+2. Proxy reads project docs, existing patterns, and conventions
+3. Proxy responds with best judgment + confidence level
+4. If confidence < 70%: decision is marked `REVIEWABLE`
+5. Builder proceeds either way — never blocks on human input
+
+### 3. The Ralph Loop
+
+**What**: A self-referential development loop powered by a stop hook. When Claude tries to exit, the hook feeds the same prompt back as input, creating an iterative improvement cycle.
+
+**Why**: Complex tasks need multiple passes. The Ralph Loop automates the "try, fail, learn, retry" cycle with structured learnings capture at each iteration.
+
+**How the stop hook works**:
+1. `/ralph-loop` creates a state file (`.claude/ralph-loop.{session}.local.md`)
+2. When Claude finishes and tries to exit, the stop hook intercepts
+3. Hook reads the last assistant message from the transcript
+4. If `<promise>COMPLETION_TEXT</promise>` is found and matches, the loop ends
+5. Otherwise, the same prompt is fed back with an incremented iteration counter
+6. On iterations 2+, Claude is asked to write a brief retrospective before continuing
+7. On completion, a consolidation phase extracts durable learnings into permanent docs
+
+**Commands**:
+- `/ralph-loop` — Start a loop (max 10 iterations default)
+- `/ralph-loop-safe` — Same but with git safety checks (must be on feature branch, clean working dir)
+
+## The `/ralphtemplate` Command
+
+Generates a complete orchestrator prompt combining all three patterns. You provide a task description, and it outputs a plain-text prompt you can paste into any Claude Code session.
+
+**Why plain text?** The generated prompt intentionally uses zero markdown formatting — no triple backticks, no `##` headers, no `**bold**`, no `{curly braces}`, no `(parentheses)` in structural positions. This is critical because markdown characters can cause Claude to "break out" of the Boris antagonist loop by interpreting formatting as code boundaries, section endings, or structural delimiters. By using ALL CAPS for emphasis and plain numbered lists instead, the entire prompt stays in a single continuous instruction space that Claude processes as one coherent directive.
+
+The generated prompt includes:
+- **Role 1 (Builder)**: Implements using ralph-loop iteration methodology
+- **Role 2 (Challenger)**: Interrogates before and after every major step
+- **Role 3 (Proxy)**: Answers questions by researching, never asks the user
+- **Execution flow**: Challenger/Proxy negotiate → Builder implements → Challenger reviews → repeat
+- **Completion checklist**: 4 honest questions before declaring done
+
+Usage:
+```
+/ralphtemplate Build a REST API with auth, tests, and deployment
+```
+
+## The Hierarchical CLAUDE.md Setup
+
+This system uses `@import` directives to create a layered configuration:
+
+```
+~/.claude/CLAUDE.md (Global)
+  |
+  +-- @~/.claude/rules/core-behavior.md    (P1-P6 priority rules)
+  +-- @~/.claude/rules/planning.md         (Success probability format)
+  +-- @~/.claude/rules/agents.md           (Specialized agent registry)
+  +-- @~/.claude/rules/session-management.md (Thinking triggers, CLI flags)
+  +-- @~/.claude/rules/mcp-servers.md      (MCP server catalog)
+  +-- @~/.claude/rules/system-info.md      (Hardware/OS details)
+  |
+  +-- Active Projects section              (Project-specific context)
+  +-- Quality Standards                    (Universal coding rules)
+
+project/CLAUDE.md (Per-Project)
+  |
+  +-- Inherits everything from global
+  +-- Adds project-specific rules, paths, conventions
+```
+
+**Why this matters**: Claude Code reads CLAUDE.md at session start. By using `@import`, you keep the always-loaded context small (~120 lines) while having detailed rules available when needed. The priority system (P1-P6) ensures Claude follows the most important rules even under context pressure.
+
+Sanitized templates are in `templates/` — copy them to `~/.claude/` and customize.
+
+## Installation
+
+### Quick Start (Commands Only)
+
+Copy the command files to your Claude Code commands directory:
+
+```bash
+mkdir -p ~/.claude/commands
+cp commands/*.md ~/.claude/commands/
+```
+
+Now you can use `/boris-challenge`, `/ralph-loop`, `/ralphtemplate`, etc. in any Claude Code session.
+
+### Full Setup (Commands + Rules + Loop Engine)
+
+1. **Copy commands**:
+```bash
+cp commands/*.md ~/.claude/commands/
+```
+
+2. **Set up rules** (customize from templates):
+```bash
+mkdir -p ~/.claude/rules
+cp templates/rules/*.template ~/.claude/rules/
+# Rename .template files and customize for your setup
+for f in ~/.claude/rules/*.template; do mv "$f" "${f%.template}"; done
+```
+
+3. **Set up global CLAUDE.md**:
+```bash
+cp templates/CLAUDE.md.template ~/.claude/CLAUDE.md
+# Edit to add your projects, paths, and preferences
+```
+
+4. **Install Ralph Loop plugin** (for the self-referential stop hook):
+
+If using the official Claude Code plugin marketplace:
+```bash
+/plugin install ralph-loop@claude-plugins-official
+```
+
+Or manually copy the scripts:
+```bash
+mkdir -p ~/.claude/plugins/ralph-loop/{scripts,hooks}
+cp scripts/setup-ralph-loop.sh ~/.claude/plugins/ralph-loop/scripts/
+cp scripts/stop-hook.sh ~/.claude/plugins/ralph-loop/hooks/
+cp scripts/hooks.json ~/.claude/plugins/ralph-loop/hooks/
+```
+
+5. **Verify installation**:
+```bash
+# Check commands are available
+ls ~/.claude/commands/
+
+# Check rules are in place
+ls ~/.claude/rules/
+
+# Test a command
+claude
+# Then type: /boris-challenge
+```
+
+## File Structure
+
+```
+ralphlooptemplates/
+├── README.md                          # This file
+├── commands/                          # Slash commands (copy to ~/.claude/commands/)
+│   ├── ralphtemplate.md               # Generate orchestrator prompts
+│   ├── boris-challenge.md             # Challenge requirements before coding
+│   ├── ralph-loop.md                  # Self-iterating development loop
+│   ├── ralph-loop-safe.md             # Safe loop with git checks
+│   ├── prove-it.md                    # Demand evidence of working code
+│   ├── grill-me.md                    # Staff engineer code review
+│   ├── knowing-everything.md          # Retrospective and knowledge capture
+│   └── scrap-and-redo.md              # Rebuild with accumulated context
+├── scripts/                           # Ralph Loop engine
+│   ├── setup-ralph-loop.sh            # Creates loop state file
+│   ├── stop-hook.sh                   # Intercepts exit, feeds prompt back
+│   └── hooks.json                     # Hook configuration
+├── workflow-rules/                    # Development workflow rules
+│   └── development-workflow-rules.txt # 5 rules for rigorous development
+├── examples/                          # Usage examples
+│   ├── ralph-loop-usage-examples.txt  # Common invocation patterns
+│   └── ralph-loop-ci-debugging-example.txt  # CI/CD debugging pattern
+├── prompts/                           # Prompt collections
+│   └── revenue-first-prompts.txt      # 23 revenue-focused development prompts
+└── templates/                         # Sanitized config templates
+    ├── CLAUDE.md.template             # Global CLAUDE.md with @import pattern
+    └── rules/
+        ├── core-behavior.md.template  # P1-P6 priority system
+        ├── planning.md.template       # Success probability format
+        ├── agents.md.template         # Specialized agent registry
+        └── session-management.md.template  # CLI flags and thinking triggers
+```
+
+## Example Usage
+
+### Simple: Fix a bug with proof
+
+```
+/ralph-loop "Fix the auth token expiry bug. Run tests after each attempt."
+  --max-iterations 10 --completion-promise "DONE"
+```
+
+### Medium: Build a feature with antagonist review
+
+```
+/boris-challenge Add rate limiting to the API
+
+# After approval:
+/ralph-loop "Implement rate limiting as approved. Test with load testing."
+  --max-iterations 20 --completion-promise "DONE"
+```
+
+### Advanced: Full orchestrated build
+
+```
+/ralphtemplate Build a complete user authentication system with JWT,
+  refresh tokens, password reset, and email verification
+
+# Copy the generated prompt, then:
+/ralph-loop-safe "[paste prompt]"
+  --max-iterations 30 --completion-promise "DONE"
+```
+
+### Review after completion
+
+```
+/knowing-everything    # Capture what was learned
+/grill-me              # Challenge the implementation
+/prove-it              # Demand evidence it works
+```
+
+## The Revenue-First Prompts
+
+The `prompts/revenue-first-prompts.txt` file contains 23 production-ready prompts for building revenue-generating products. These combine Boris Cherny's development methodology with revenue-first thinking:
+
+- **Prompts 1-3**: Project setup (revenue hypothesis, environment, CLAUDE.md)
+- **Prompts 4-6**: Revenue validation (feature scoring, $100 test, unit economics)
+- **Prompts 7-8**: Slash commands (payment verification, conversion checking)
+- **Prompts 9-11**: Subagents (revenue validator, conversion optimizer, analytics checker)
+- **Prompts 12-13**: Weekly sprints (Monday planning, Friday retrospective)
+- **Prompts 14-15**: Feature development (revenue-first planning, rapid MVP)
+- **Prompts 16-17**: Launch & growth (checklist, experiment design)
+- **Prompts 18-19**: Analytics (revenue dashboard, cohort analysis)
+- **Prompts 20-21**: Customer development (interview guide, feedback analysis)
+- **Prompts 22-23**: Specialized (pricing optimization, competitive analysis)
+
+## Credits
+
+- **Boris Cherny's Method**: The antagonist review pattern is inspired by Boris Cherny's approach to rigorous Claude Code development
+- **Ralph Loop Plugin**: Available on the Claude Code plugin marketplace
+- **Revenue-First Development**: Combines lean startup methodology with AI-assisted development
+
+## License
+
+MIT
