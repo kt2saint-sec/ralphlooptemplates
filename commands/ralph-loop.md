@@ -1,19 +1,18 @@
 ---
-description: "Implement, test, iterate automatically - max 10 iterations before asking for input"
+description: "Start Ralph Loop in current session"
+argument-hint: "PROMPT [--max-iterations N] [--completion-promise TEXT]"
+allowed-tools: ["Bash(${CLAUDE_PLUGIN_ROOT}/scripts/setup-ralph-loop.sh:*)"]
+hide-from-slash-command-tool: "true"
 ---
 
-Implement, test, and iterate automatically. If a test fails, diagnose the
-root cause, fix it, and re-run. Maximum 10 iterations before stopping and
-asking for input. Report each iteration: what failed, what you changed,
-whether it passed. Do not ask me for help unless you have tried 3 different
-approaches and documented each attempt.
+# Ralph Loop Command
 
-**Iteration Format:**
+Execute the setup script to initialize the Ralph loop:
 
+```!
+"${CLAUDE_PLUGIN_ROOT}/scripts/setup-ralph-loop.sh" $ARGUMENTS
 ```
-Iteration N:
-  Failed: [what failed]
-  Root Cause: [diagnosis]
-  Fix: [what you changed]
-  Result: [PASS/FAIL]
-```
+
+Please work on the task. When you try to exit, the Ralph loop will feed the SAME PROMPT back to you for the next iteration. You'll see your previous work in files and git history, allowing you to iterate and improve.
+
+CRITICAL RULE: If a completion passphrase is set, you may ONLY output it on its own line when the statement is completely and unequivocally TRUE. The passphrase is auto-generated (WORD NNNN WORD NNNN WORD NNNN format) and shown in the setup output. Do not output false promises to escape the loop. The loop continues until genuine completion.

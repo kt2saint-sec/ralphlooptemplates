@@ -237,25 +237,24 @@ cp templates/CLAUDE.md.template ~/.claude/CLAUDE.md
 
 4. **Install Ralph Loop plugin** (for the self-referential stop hook):
 
-If using the official Claude Code plugin marketplace:
+Install from the official Claude Code plugin marketplace:
 ```bash
 /plugin install ralph-loop@claude-plugins-official
 ```
 
-Or manually copy the scripts:
-```bash
-mkdir -p ~/.claude/plugins/ralph-loop/{scripts,hooks}
-cp scripts/setup-ralph-loop.sh ~/.claude/plugins/ralph-loop/scripts/
-cp scripts/stop-hook.sh ~/.claude/plugins/ralph-loop/hooks/  # NOTE: scripts/ -> hooks/
-cp scripts/hooks.json ~/.claude/plugins/ralph-loop/hooks/
-```
-
-**Syncing changes to the plugin cache**: If you modify the scripts locally (e.g., to customize behavior), use `cache-sync.sh` to push changes to the active plugin cache. The script auto-discovers the correct cache directory and handles the `scripts/` → `hooks/` path mapping:
+**IMPORTANT: Apply patches after installation.** The marketplace version uses `<promise>` XML tags and `PPID` for session ID, which have known issues. This repo contains patched versions with passphrase detection, hook JSON session ID, and other fixes. Sync them with:
 ```bash
 bash scripts/cache-sync.sh
 ```
 
-> **Important**: Claude Code loads hooks at session start. After syncing, you must start a **new** Claude Code session for hook changes to take effect. Changes synced mid-session will not affect running hooks.
+This syncs patched files to all three plugin directories:
+- `~/.claude/plugins/marketplaces/...` (PRIMARY — what Claude Code actually loads)
+- `~/.claude/plugins/cache/...` (cache copy)
+- `~/.claude/plugins/local/...` (reference copy)
+
+> **Critical**: Claude Code caches hook script **content** at session start. After syncing, you **must** start a new Claude Code session for changes to take effect. Mid-session syncs do NOT affect running hooks.
+
+> **After `/plugin update`**: Re-run `bash scripts/cache-sync.sh` immediately. Plugin updates do `git pull` on the marketplace repo, overwriting all patches.
 
 **Cache watchdog**: Optionally install `cache-watchdog.sh` as a SessionStart hook to automatically detect when plugin updates overwrite your customizations. Add it to `~/.claude/settings.json` under hooks.
 
@@ -283,6 +282,7 @@ claude
 ralphlooptemplates/
 ├── README.md                          # This file
 ├── CLAUDE.md                          # Project-specific Claude Code instructions
+├── PLUGIN-SYNC-GUIDE.txt              # How to keep patched plugin working
 ├── commands/                          # Slash commands (copy to ~/.claude/commands/)
 │   ├── ralphtemplate.md               # Generate orchestrator prompts
 │   ├── boris-challenge.md             # Challenge requirements before coding
@@ -292,15 +292,17 @@ ralphlooptemplates/
 │   ├── grill-me.md                    # Staff engineer code review
 │   ├── knowing-everything.md          # Retrospective and knowledge capture
 │   ├── scrap-and-redo.md              # Rebuild with accumulated context
-│   └── cancel-ralph.md               # Cancel active loop (session-scoped)
+│   ├── cancel-ralph.md               # Cancel active loop (session-scoped)
+│   └── help.md                        # Plugin help and command reference
 ├── scripts/                           # Ralph Loop engine
 │   ├── setup-ralph-loop.sh            # Creates loop state file
 │   ├── stop-hook.sh                   # Intercepts exit, feeds prompt back
 │   ├── hooks.json                     # Hook configuration
 │   ├── cache-sync.sh                  # Syncs repo files to plugin cache
 │   ├── cache-watchdog.sh              # SessionStart hook: detects cache mismatches
+│   ├── learnings-preamble.md          # Per-iteration retrospective prompt template
 │   ├── test-passphrase-detection.sh   # Tests: passphrase format + false positives (18 tests)
-│   ├── test-multi-terminal.sh         # Tests: ls -t heuristic behavior (5 tests)
+│   ├── test-multi-terminal.sh         # Tests: ls -t heuristic behavior (4 tests)
 │   ├── test-rename-migration.sh       # Tests: state file rename path (13 tests)
 │   ├── test-cache-watchdog.sh         # Tests: actual watchdog script invocation (7 tests)
 │   ├── test-consolidation.sh          # Tests: consolidation exit path (10 tests)
@@ -383,7 +385,7 @@ The `prompts/revenue-first-prompts.txt` file contains 23 production-ready prompt
 
 ### v2 — Stop Hook Hardening & Test Suite (2026-03-05)
 
-**33 decisions across 8 development sessions**, each using the Ralph Loop itself to iteratively build, test, and verify.
+**44 decisions across 10 development sessions**, each using the Ralph Loop itself to iteratively build, test, and verify.
 
 #### What Changed
 
@@ -412,12 +414,12 @@ The original plugin uses `<promise>` XML tags for completion detection via Perl 
 
 #### Testing
 
-83 tests across 7 test suites, all passing:
+82 tests across 7 test suites, all passing:
 
 | Suite | Tests | Coverage |
 |-------|-------|----------|
 | `test-passphrase-detection.sh` | 18 | Passphrase format, false positive rejection, edge cases |
-| `test-multi-terminal.sh` | 5 | `ls -t` determinism, session ID availability |
+| `test-multi-terminal.sh` | 4 | `ls -t` determinism, session ID availability |
 | `test-rename-migration.sh` | 13 | State file rename, frontmatter update, flock, content preservation |
 | `test-cache-watchdog.sh` | 7 | Actual watchdog script invocation with mock cache directories |
 | `test-consolidation.sh` | 10 | Consolidation prompt emission, learnings cleanup, second-pass exit |
