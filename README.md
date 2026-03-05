@@ -113,7 +113,8 @@ The generated prompt includes:
 - **Role 1 (Builder)**: Implements using ralph-loop iteration methodology
 - **Role 2 (Challenger)**: Interrogates before and after every major step
 - **Role 3 (Proxy)**: Answers questions by researching, never asks the user
-- **Execution flow**: Challenger/Proxy negotiate → Builder implements → Challenger reviews → repeat
+- **Role 4 (Researcher)**: Independent knowledge agent — activates when Builder or Proxy is below 75% certainty. Delegates subagents, web search, and MCP servers to find verified information before the team proceeds.
+- **Execution flow**: Challenger/Proxy negotiate → Builder implements (Researcher consulted when uncertain) → Challenger reviews → repeat
 - **Completion checklist**: 4 honest questions before declaring done
 
 Usage:
@@ -383,7 +384,7 @@ The `prompts/revenue-first-prompts.txt` file contains 23 production-ready prompt
 
 ## Changelog
 
-### v2 — Stop Hook Hardening & Test Suite (2026-03-05)
+### v2 — Stop Hook Hardening & Test Suite
 
 **44 decisions across 10 development sessions**, each using the Ralph Loop itself to iteratively build, test, and verify.
 
