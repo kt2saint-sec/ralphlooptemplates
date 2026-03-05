@@ -34,7 +34,8 @@ DESCRIPTION:
   Starts a Ralph Loop in your CURRENT session. The stop hook prevents
   exit and feeds your output back as input until completion or iteration limit.
 
-  To signal completion, you must output: <promise>YOUR_PHRASE</promise>
+  A unique passphrase is auto-generated for completion detection.
+  Output the passphrase on its own line when genuinely done.
 
   Use this for:
   - Interactive iteration where you want to see progress
@@ -53,10 +54,10 @@ STOPPING:
 
 MONITORING:
   # View current iteration:
-  grep '^iteration:' .claude/ralph-loop.local.md
+  grep '^iteration:' .claude/ralph-loop.*.local.md
 
   # View full state:
-  head -10 .claude/ralph-loop.local.md
+  head -10 .claude/ralph-loop.*.local.md
 HELP_EOF
       exit 0
       ;;
@@ -133,12 +134,56 @@ if [[ -z "$PROMPT" ]]; then
   exit 1
 fi
 
+# --- Passphrase generation for completion promise ---
+# Generates a unique WORD NNNN WORD NNNN WORD NNNN pattern that cannot false-positive.
+# Three arrays from different semantic domains ensure no natural code output matches.
+generate_passphrase() {
+  local MATERIALS=(GRANITE BRONZE CERAMIC MARBLE COBALT VELVET COPPER OBSIDIAN IVORY SILVER TITANIUM QUARTZ BAMBOO LIMESTONE GRAPHITE SANDSTONE PORCELAIN MAHOGANY PLATINUM ENAMEL)
+  local ANIMALS=(OSPREY FALCON PELICAN MANTIS CONDOR IGUANA OTTER BISON COBRA GECKO HERON JACKAL LEMUR MARTEN NEWT PANTHER QUAIL RAVEN STORK TOUCAN)
+  local SCIENCE=(COSINE AXIOM PRISM VECTOR HELIX QUORUM TENSOR VERTEX MATRIX CIPHER RADIUS BINARY SCALAR THEOREM LATTICE DIPOLE FRACTAL PHOTON ORBITAL TANGENT)
+
+  local W1="${MATERIALS[$((RANDOM % ${#MATERIALS[@]}))]}"
+  local N1=$(printf "%04d" $((RANDOM % 10000)))
+  local W2="${ANIMALS[$((RANDOM % ${#ANIMALS[@]}))]}"
+  local N2=$(printf "%04d" $((RANDOM % 10000)))
+  local W3="${SCIENCE[$((RANDOM % ${#SCIENCE[@]}))]}"
+  local N3=$(printf "%04d" $((RANDOM % 10000)))
+
+  echo "${W1} ${N1} ${W2} ${N2} ${W3} ${N3}"
+}
+
+# Generate passphrase and build completion promise
+PASSPHRASE=$(generate_passphrase)
+if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
+  # User provided a promise — prepend passphrase with :: separator
+  COMPLETION_PROMISE="${PASSPHRASE}::${COMPLETION_PROMISE}"
+else
+  # No user promise — use passphrase alone as the completion signal
+  COMPLETION_PROMISE="$PASSPHRASE"
+fi
+
 # Create state file for stop hook (markdown with YAML frontmatter)
 # Session-scoped to prevent cross-terminal contamination
 mkdir -p .claude
 
-SESSION_ID="${CLAUDE_SESSION_ID:-$PPID}"
+# Generate a reliable session ID:
+# 1. CLAUDE_SESSION_ID (if Claude Code provides it)
+# 2. Fallback: short unique ID from uuidgen or /proc/sys/kernel/random/uuid
+# Note: PPID is unreliable because setup and stop-hook run as different processes
+if [[ -n "${CLAUDE_SESSION_ID:-}" ]]; then
+  SESSION_ID="$CLAUDE_SESSION_ID"
+else
+  SESSION_ID="$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "$$-$(date +%s%N)")"
+  # Use short form (first 12 chars) to keep filename readable
+  SESSION_ID="${SESSION_ID:0:12}"
+fi
 RALPH_STATE_FILE=".claude/ralph-loop.${SESSION_ID}.local.md"
+
+# Verify session ID is non-empty (defensive)
+if [[ -z "$SESSION_ID" ]]; then
+  echo "❌ Error: Failed to generate session ID" >&2
+  exit 1
+fi
 
 # Quote completion promise for YAML if it contains special chars or is not null
 if [[ -n "$COMPLETION_PROMISE" ]] && [[ "$COMPLETION_PROMISE" != "null" ]]; then
@@ -167,7 +212,7 @@ cat <<EOF
 
 Iteration: 1
 Max iterations: $(if [[ $MAX_ITERATIONS -gt 0 ]]; then echo $MAX_ITERATIONS; else echo "unlimited"; fi)
-Completion promise: $(if [[ "$COMPLETION_PROMISE" != "null" ]]; then echo "${COMPLETION_PROMISE//\"/} (ONLY output when TRUE - do not lie!)"; else echo "none (runs forever)"; fi)
+Completion passphrase: ${COMPLETION_PROMISE//\"/} (ONLY output when TRUE)
 Learnings: $(if [[ "$LEARNINGS_ENABLED" == "true" ]]; then echo "enabled (captures per-iteration retrospectives)"; else echo "disabled"; fi)
 
 The stop hook is now active. When you try to exit, the SAME PROMPT will be
@@ -177,8 +222,8 @@ self-referential loop where you iteratively improve on the same task.
 Session ID: $SESSION_ID
 To monitor: head -10 $RALPH_STATE_FILE
 
-⚠️  WARNING: This loop cannot be stopped manually! It will run infinitely
-    unless you set --max-iterations or --completion-promise.
+⚠️  WARNING: This loop continues until the passphrase is output or
+    --max-iterations is reached.
 
 🔄
 EOF
@@ -189,29 +234,12 @@ if [[ -n "$PROMPT" ]]; then
   echo "$PROMPT"
 fi
 
-# Display completion promise requirements if set
+# Display completion passphrase (always set now due to auto-generation)
 if [[ "$COMPLETION_PROMISE" != "null" ]]; then
   echo ""
-  echo "═══════════════════════════════════════════════════════════"
-  echo "CRITICAL - Ralph Loop Completion Promise"
-  echo "═══════════════════════════════════════════════════════════"
+  echo "YOUR COMPLETION PASSPHRASE IS"
+  echo "  $COMPLETION_PROMISE"
   echo ""
-  echo "To complete this loop, output this EXACT text:"
-  echo "  <promise>$COMPLETION_PROMISE</promise>"
-  echo ""
-  echo "STRICT REQUIREMENTS (DO NOT VIOLATE):"
-  echo "  ✓ Use <promise> XML tags EXACTLY as shown above"
-  echo "  ✓ The statement MUST be completely and unequivocally TRUE"
-  echo "  ✓ Do NOT output false statements to exit the loop"
-  echo "  ✓ Do NOT lie even if you think you should exit"
-  echo ""
-  echo "IMPORTANT - Do not circumvent the loop:"
-  echo "  Even if you believe you're stuck, the task is impossible,"
-  echo "  or you've been running too long - you MUST NOT output a"
-  echo "  false promise statement. The loop is designed to continue"
-  echo "  until the promise is GENUINELY TRUE. Trust the process."
-  echo ""
-  echo "  If the loop should stop, the promise statement will become"
-  echo "  true naturally. Do not force it by lying."
-  echo "═══════════════════════════════════════════════════════════"
+  echo "Output this EXACT text on its own line when the task is genuinely complete."
+  echo "Do NOT output it to escape the loop if the task is not done."
 fi

@@ -3,6 +3,9 @@
 *.local.md
 .playwright-mcp/
 
+# Debug/test artifacts
+/tmp/ralph-hook-debug.json
+
 # Original unsanitized files
 .originals/
 challenge-workflow-starthere.txt
@@ -16,3 +19,6 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Lock files from flock
+*.lock

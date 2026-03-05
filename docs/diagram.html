@@ -409,8 +409,8 @@
     <div class="loop-sidebar">
       <div class="sidebar-title">Stop Hook Engine</div>
       <div class="hook-step">Claude tries to exit</div>
-      <div class="hook-step">Hook reads transcript</div>
-      <div class="hook-step">Checks for &lt;promise&gt; tag</div>
+      <div class="hook-step">Hook reads last assistant message</div>
+      <div class="hook-step">Checks for passphrase match</div>
       <div class="hook-step">No match: blocks exit</div>
       <div class="hook-step">Feeds same prompt back</div>
       <div class="hook-step">Increments iteration</div>
@@ -462,7 +462,7 @@
 
   <!-- Done -->
   <div class="completion-box">
-    <div class="label">&lt;promise&gt;DONE&lt;/promise&gt;</div>
+    <div class="label">PASSPHRASE (auto-generated completion signal)</div>
     <div class="completion-items">
       <div class="completion-item">Results in plain language</div>
       <div class="completion-item">REVIEWABLE decisions flagged</div>

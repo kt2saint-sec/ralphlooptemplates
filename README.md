@@ -54,7 +54,7 @@ User
 |    |  Learnings consolidated -> permanent docs     |
 |    |  Temp files deleted                          |
 |    v                                              |
-|  <promise>DONE</promise>                          |
+|  PASSPHRASE (auto-generated, on its own line)     |
 +--------------------------------------------------+
 ```
 
@@ -94,7 +94,7 @@ User
 1. `/ralph-loop` creates a state file (`.claude/ralph-loop.{session}.local.md`)
 2. When Claude finishes and tries to exit, the stop hook intercepts
 3. Hook reads the last assistant message from the transcript
-4. If `<promise>COMPLETION_TEXT</promise>` is found and matches, the loop ends
+4. If the completion promise text is found as an exact standalone line in the output (`grep -Fx`), the loop ends
 5. Otherwise, the same prompt is fed back with an incremented iteration counter
 6. On iterations 2+, Claude is asked to write a brief retrospective before continuing
 7. On completion, a consolidation phase extracts durable learnings into permanent docs
@@ -134,7 +134,9 @@ EOF
 
 # 2. Use the .txt content inside the ralph-loop quotes
 /ralph-loop "$(cat ~/prompts/auth-system-build.txt)" \
-  --max-iterations 30 --completion-promise "DONE"
+  --max-iterations 30 --completion-promise "ALL TESTS PASSING"
+# Note: A unique passphrase (WORD NNNN WORD NNNN WORD NNNN) is auto-prepended
+# to your promise. The actual completion signal becomes: PASSPHRASE::ALL TESTS PASSING
 ```
 
 **Why outside your project?** Keeping prompt files in `~/prompts/` or similar avoids cluttering your git repo, prevents accidental commits of task-specific prompts, and keeps them reusable across projects.
@@ -164,7 +166,7 @@ Example agent call:
 Then feed the generated file into your loop:
 ```bash
 /ralph-loop "$(cat ~/prompts/[descriptive-name].txt)" \
-  --max-iterations 30 --completion-promise "DONE"
+  --max-iterations 30 --completion-promise "ALL TESTS PASSING"
 ```
 
 This pattern means:
@@ -244,8 +246,22 @@ Or manually copy the scripts:
 ```bash
 mkdir -p ~/.claude/plugins/ralph-loop/{scripts,hooks}
 cp scripts/setup-ralph-loop.sh ~/.claude/plugins/ralph-loop/scripts/
-cp scripts/stop-hook.sh ~/.claude/plugins/ralph-loop/hooks/
+cp scripts/stop-hook.sh ~/.claude/plugins/ralph-loop/hooks/  # NOTE: scripts/ -> hooks/
 cp scripts/hooks.json ~/.claude/plugins/ralph-loop/hooks/
+```
+
+**Syncing changes to the plugin cache**: If you modify the scripts locally (e.g., to customize behavior), use `cache-sync.sh` to push changes to the active plugin cache. The script auto-discovers the correct cache directory and handles the `scripts/` → `hooks/` path mapping:
+```bash
+bash scripts/cache-sync.sh
+```
+
+> **Important**: Claude Code loads hooks at session start. After syncing, you must start a **new** Claude Code session for hook changes to take effect. Changes synced mid-session will not affect running hooks.
+
+**Cache watchdog**: Optionally install `cache-watchdog.sh` as a SessionStart hook to automatically detect when plugin updates overwrite your customizations. Add it to `~/.claude/settings.json` under hooks.
+
+**Orphaned cache cleanup**: If you reinstall or update the plugin, Claude Code may leave orphaned caches under `~/.claude/plugins/cache/`. Check for directories with `.orphaned_at` files and delete them:
+```bash
+find ~/.claude/plugins/cache -name ".orphaned_at" -exec dirname {} \; | xargs rm -rf
 ```
 
 5. **Verify installation**:
@@ -266,6 +282,7 @@ claude
 ```
 ralphlooptemplates/
 ├── README.md                          # This file
+├── CLAUDE.md                          # Project-specific Claude Code instructions
 ├── commands/                          # Slash commands (copy to ~/.claude/commands/)
 │   ├── ralphtemplate.md               # Generate orchestrator prompts
 │   ├── boris-challenge.md             # Challenge requirements before coding
@@ -274,11 +291,21 @@ ralphlooptemplates/
 │   ├── prove-it.md                    # Demand evidence of working code
 │   ├── grill-me.md                    # Staff engineer code review
 │   ├── knowing-everything.md          # Retrospective and knowledge capture
-│   └── scrap-and-redo.md              # Rebuild with accumulated context
+│   ├── scrap-and-redo.md              # Rebuild with accumulated context
+│   └── cancel-ralph.md               # Cancel active loop (session-scoped)
 ├── scripts/                           # Ralph Loop engine
 │   ├── setup-ralph-loop.sh            # Creates loop state file
 │   ├── stop-hook.sh                   # Intercepts exit, feeds prompt back
-│   └── hooks.json                     # Hook configuration
+│   ├── hooks.json                     # Hook configuration
+│   ├── cache-sync.sh                  # Syncs repo files to plugin cache
+│   ├── cache-watchdog.sh              # SessionStart hook: detects cache mismatches
+│   ├── test-passphrase-detection.sh   # Tests: passphrase format + false positives (18 tests)
+│   ├── test-multi-terminal.sh         # Tests: ls -t heuristic behavior (5 tests)
+│   ├── test-rename-migration.sh       # Tests: state file rename path (13 tests)
+│   ├── test-cache-watchdog.sh         # Tests: actual watchdog script invocation (7 tests)
+│   ├── test-consolidation.sh          # Tests: consolidation exit path (10 tests)
+│   ├── test-lifecycle.sh              # Tests: full loop lifecycle + glob patterns (18 tests)
+│   └── test-hook-input.sh            # Tests: malformed/empty/valid hook JSON (12 tests)
 ├── workflow-rules/                    # Development workflow rules
 │   └── development-workflow-rules.txt # 5 rules for rigorous development
 ├── examples/                          # Usage examples
@@ -297,11 +324,15 @@ ralphlooptemplates/
 
 ## Example Usage
 
+> **Note on completion promises:** A unique passphrase (`WORD NNNN WORD NNNN WORD NNNN`) is auto-generated
+> for every ralph-loop session. If you provide `--completion-promise "DONE"`, the actual completion signal
+> becomes `PASSPHRASE::DONE`. The passphrase prevents false positives from common words in code output.
+
 ### Simple: Fix a bug with proof
 
 ```
 /ralph-loop "Fix the auth token expiry bug. Run tests after each attempt."
-  --max-iterations 10 --completion-promise "DONE"
+  --max-iterations 10 --completion-promise "ALL TESTS PASSING"
 ```
 
 ### Medium: Build a feature with antagonist review
@@ -311,7 +342,7 @@ ralphlooptemplates/
 
 # After approval:
 /ralph-loop "Implement rate limiting as approved. Test with load testing."
-  --max-iterations 20 --completion-promise "DONE"
+  --max-iterations 20 --completion-promise "LOAD TESTS PASSING"
 ```
 
 ### Advanced: Full orchestrated build
@@ -322,7 +353,7 @@ ralphlooptemplates/
 
 # Copy the generated prompt, then:
 /ralph-loop-safe "[paste prompt]"
-  --max-iterations 30 --completion-promise "DONE"
+  --max-iterations 30 --completion-promise "AUTH SYSTEM COMPLETE"
 ```
 
 ### Review after completion
@@ -347,6 +378,66 @@ The `prompts/revenue-first-prompts.txt` file contains 23 production-ready prompt
 - **Prompts 18-19**: Analytics (revenue dashboard, cohort analysis)
 - **Prompts 20-21**: Customer development (interview guide, feedback analysis)
 - **Prompts 22-23**: Specialized (pricing optimization, competitive analysis)
+
+## Changelog
+
+### v2 — Stop Hook Hardening & Test Suite (2026-03-05)
+
+**33 decisions across 8 development sessions**, each using the Ralph Loop itself to iteratively build, test, and verify.
+
+#### What Changed
+
+**Passphrase system** — Replaced simple word-based completion promises with auto-generated `WORD NNNN WORD NNNN WORD NNNN` passphrases (~8 trillion combinations). Eliminates false-positive promise detection when common words like "DONE" appear in code output. User-provided promises are prefixed with the passphrase automatically.
+
+**Session-scoped state files** — State files now include a session identifier in the filename to prevent cross-terminal contamination. On first iteration, the stop hook renames the file using the hook-provided session ID for O(1) direct lookup on subsequent iterations. The rename is protected by `flock` to handle concurrent terminal scenarios safely.
+
+**Dual glob pattern** — The stop hook now supports both the original plugin's state file format (`ralph-loop.local.md`) and the session-scoped format (`ralph-loop.{SESSION_ID}.local.md`). Uses a `nullglob`-compatible character class trick (`loca[l].md`) to ensure non-existent files are properly excluded from bash arrays.
+
+**Hook JSON field support** — The stop hook now extracts `session_id` and `last_assistant_message` from the hook input JSON (piped via stdin), with fallbacks to glob-based lookup and transcript parsing for backward compatibility.
+
+**Consolidation path** — When a loop completes (via promise or max iterations), if learnings were enabled, the stop hook injects a final "consolidate learnings" prompt before exiting. This extracts durable patterns into permanent project documentation.
+
+**Cache sync tooling** — `cache-sync.sh` copies local script changes to the active plugin cache directory, auto-discovering the correct version folder and handling the `scripts/` → `hooks/` path mapping. `cache-watchdog.sh` can be installed as a SessionStart hook to detect when plugin updates overwrite customizations.
+
+**Cancel command** — `cancel-ralph.md` is now session-scoped, reading the session ID from the state file to delete only the current session's files (not all sessions in multi-terminal setups).
+
+#### Why These Changes
+
+The original plugin uses `<promise>` XML tags for completion detection via Perl regex, and `PPID` for session identification. Through 8 iterative sessions, several issues were discovered:
+
+- **Promise false positives**: Simple words like "DONE" or "COMPLETE" could appear naturally in code output, triggering premature loop exit. The passphrase system eliminates this.
+- **Multi-terminal conflicts**: `PPID` differs between the setup script and stop hook processes. The hook JSON `session_id` is consistent across both.
+- **Plugin cache overwrites**: When Claude Code updates a plugin, the cache directory is replaced with fresh copies. Without the watchdog/sync tooling, local customizations are silently lost.
+- **Frontmatter corruption**: The original `awk` pattern for extracting prompts (`/^---$/{i++; next} i>=2`) skips ALL `---` lines in the document, corrupting markdown prompts that use `---` as content separators. The fix only skips the first two `---` (frontmatter delimiters).
+
+#### Testing
+
+83 tests across 7 test suites, all passing:
+
+| Suite | Tests | Coverage |
+|-------|-------|----------|
+| `test-passphrase-detection.sh` | 18 | Passphrase format, false positive rejection, edge cases |
+| `test-multi-terminal.sh` | 5 | `ls -t` determinism, session ID availability |
+| `test-rename-migration.sh` | 13 | State file rename, frontmatter update, flock, content preservation |
+| `test-cache-watchdog.sh` | 7 | Actual watchdog script invocation with mock cache directories |
+| `test-consolidation.sh` | 10 | Consolidation prompt emission, learnings cleanup, second-pass exit |
+| `test-lifecycle.sh` | 18 | Full loop lifecycle: setup → rename → iterate → promise → consolidate → cancel |
+| `test-hook-input.sh` | 12 | Empty/malformed/valid/binary/large hook JSON, jq resilience |
+
+Run all tests: `for f in scripts/test-*.sh; do bash "$f"; done`
+
+#### Plugin Cache Behavior
+
+Claude Code caches plugin files at session start. This has important implications:
+
+- **Syncing changes mid-session does not affect running hooks.** The hook that executes is the version loaded when the session started, not the current file on disk.
+- **To test hook changes**: sync files with `cache-sync.sh`, then start a **new** Claude Code session.
+- **Plugin updates create a new cache directory** and mark the old one with an `.orphaned_at` file. The `cache-sync.sh` script discovers the active directory automatically.
+- **The cache watchdog** (`cache-watchdog.sh`) compares repo files against the cache on every session start and warns if mismatches are detected.
+
+#### Known Differences from Original Plugin
+
+The patched stop hook differs from the marketplace version in several ways. See `CLAUDE.md` for a detailed comparison table. The most significant difference is promise detection format: the original uses `<promise>` XML tags, while this version uses plain-text `grep -Fx` matching.
 
 ## Credits
 
