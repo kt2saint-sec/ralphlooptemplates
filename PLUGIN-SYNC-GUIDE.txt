@@ -1,0 +1,158 @@
+RALPH LOOP PLUGIN SYNC GUIDE
+How to Keep Your Patched Plugin Working
+
+
+WHAT YOU NEED TO KNOW
+
+Claude Code loads the Ralph Loop plugin from one specific place:
+  ~/.claude/plugins/marketplaces/claude-plugins-official/plugins/ralph-loop/
+
+This is a git checkout of the official plugin marketplace. The patched
+versions of the scripts live in your local clone of the ralphlooptemplates
+repo. Throughout this guide, REPO refers to wherever you cloned it.
+
+The cache-sync.sh script copies your patched files FROM the repo TO the
+marketplace directory (and two other backup locations). This is the only
+way to keep your fixes active.
+
+Claude Code also caches hook script CONTENT in memory when a session starts.
+Changing files on disk does nothing to a running session. You must start a
+new session for any changes to take effect.
+
+
+THE THREE THINGS THAT CAN BREAK YOUR SETUP
+
+1. You edit a script but forget to sync
+2. You run /plugin update which overwrites the marketplace directory
+3. You test changes without starting a new session
+
+
+DAILY WORKFLOW (do this every time you edit plugin scripts)
+
+Step 1: Make your edit in the repo
+  Edit files under REPO/scripts/ or REPO/commands/
+
+Step 2: Run the sync
+  bash REPO/scripts/cache-sync.sh
+
+Step 3: Start a new Claude Code session
+  Exit your current session and start a fresh one. The new session will
+  pick up the synced files.
+
+That is the complete workflow. Three steps every time.
+
+
+AFTER A PLUGIN UPDATE
+
+If you ever run /plugin update in Claude Code, it does a git pull on the
+marketplace directory. This overwrites every patched file with the original
+unpatched versions. The original plugin has these problems:
+  - Uses <promise> XML tags that get stripped by Claude Code rendering
+  - Uses PPID for session ID which differs between setup and hook processes
+  - Skips ALL --- lines in prompts instead of just frontmatter delimiters
+
+To fix it after an update:
+  bash REPO/scripts/cache-sync.sh
+  Then start a new session.
+
+
+VERIFYING YOUR SETUP IS CORRECT
+
+Run these commands to confirm the marketplace files match your repo.
+Replace REPO with the path to your ralphlooptemplates clone.
+
+  MARKETPLACE=~/.claude/plugins/marketplaces/claude-plugins-official/plugins/ralph-loop
+
+  diff REPO/scripts/stop-hook.sh $MARKETPLACE/hooks/stop-hook.sh
+  diff REPO/scripts/setup-ralph-loop.sh $MARKETPLACE/scripts/setup-ralph-loop.sh
+  diff REPO/commands/ralph-loop.md $MARKETPLACE/commands/ralph-loop.md
+  diff REPO/commands/cancel-ralph.md $MARKETPLACE/commands/cancel-ralph.md
+  diff REPO/commands/help.md $MARKETPLACE/commands/help.md
+  diff REPO/scripts/learnings-preamble.md $MARKETPLACE/scripts/learnings-preamble.md
+
+If any of these show differences, run cache-sync.sh.
+If none show output, your setup is correct.
+
+
+OPTIONAL: AUTOMATIC MISMATCH DETECTION
+
+Install the cache watchdog as a SessionStart hook. It runs automatically
+when you start any Claude Code session and warns you if the marketplace
+files differ from your repo.
+
+Add this to ~/.claude/settings.json under hooks:
+
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "bash REPO/scripts/cache-watchdog.sh"
+      }
+    ]
+  }
+
+Replace REPO with the absolute path to your ralphlooptemplates clone.
+
+This only detects mismatches. It does not auto-fix them. You still need
+to run cache-sync.sh manually when it warns you.
+
+
+WHAT CACHE-SYNC.SH ACTUALLY DOES
+
+It copies 6 files from your repo to 3 directories:
+
+Files copied:
+  scripts/stop-hook.sh       -> hooks/stop-hook.sh  (note the path change)
+  scripts/setup-ralph-loop.sh -> scripts/setup-ralph-loop.sh
+  scripts/learnings-preamble.md -> scripts/learnings-preamble.md
+  commands/cancel-ralph.md   -> commands/cancel-ralph.md
+  commands/ralph-loop.md     -> commands/ralph-loop.md
+  commands/help.md           -> commands/help.md
+
+Directories targeted:
+  1. ~/.claude/plugins/marketplaces/.../ralph-loop/  (PRIMARY - what Claude Code loads)
+  2. ~/.claude/plugins/cache/.../ralph-loop/<version>/  (cache copy)
+  3. ~/.claude/plugins/local/ralph-loop/  (reference copy)
+
+The marketplace directory is the only one that matters for functionality.
+The other two are kept in sync for consistency.
+
+
+RESTORING FROM A BAD STATE
+
+If something goes very wrong and you need to start over:
+
+  Option A: Re-sync from repo (fixes most problems)
+    bash REPO/scripts/cache-sync.sh
+
+  Option B: Restore original plugin config
+    cp ~/.claude/plugins/installed_plugins.json.bak ~/.claude/plugins/installed_plugins.json
+
+  Option C: Reinstall the plugin completely
+    Run /plugin install ralph-loop@claude-plugins-official in Claude Code
+    Then run cache-sync.sh to re-apply patches
+
+Always start a new session after any of these.
+
+
+RUNNING THE TEST SUITE
+
+To verify the scripts themselves are working correctly:
+
+  cd REPO
+  for f in scripts/test-*.sh; do bash "$f"; done
+
+This runs 82 tests across 7 test suites. All should pass.
+The tests exercise the stop hook, passphrase detection, state file
+management, consolidation, and hook input handling in isolation.
+They do not require a running Claude Code session.
+
+
+QUICK REFERENCE
+
+  Edit a script:       Edit files in REPO/scripts/ or REPO/commands/
+  Sync to plugin:      bash REPO/scripts/cache-sync.sh
+  Verify sync:         diff REPO/scripts/stop-hook.sh ~/.claude/plugins/marketplaces/claude-plugins-official/plugins/ralph-loop/hooks/stop-hook.sh
+  After plugin update: bash REPO/scripts/cache-sync.sh
+  Run tests:           cd REPO && for f in scripts/test-*.sh; do bash "$f"; done
+  New session:         Exit and restart Claude Code
