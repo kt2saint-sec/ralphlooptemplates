@@ -414,3 +414,80 @@ Total: 82 tests verified passing across 7 suites
   forcing function: "if you're not sure, look it up before coding."
 - MCP dependency: Researcher effectiveness depends on available MCP servers. If context7,
   brave, or fetch are disabled, Researcher degrades to codebase-only search.
+
+## Hybrid Migration: Plugin-to-Local
+
+### Decisions Made
+
+46. MIGRATED from marketplace plugin to hybrid (local commands + settings.json Stop hook)
+    - WHY: 10 sessions fighting cache-sync, marketplace overwrites, and installPath before
+      discovering the simple solution. settings.json hooks + local commands permanently solve
+      the overwrite problem.
+    - HOW: `scripts/migrate-to-hybrid.sh` — disables plugin, adds Stop hook to settings.json,
+      creates local commands with absolute paths, removes cache-watchdog.
+    - TRADEOFF: Local commands use absolute repo path (not portable to other users without edit).
+      Acceptable for single-user project.
+
+47. CREATED rollback script (`scripts/rollback-to-plugin.sh`)
+    - WHY: Migration is reversible. If settings.json hooks have unexpected behavior, one-command rollback.
+    - HOW: Re-enables plugin, removes Stop hook, re-adds cache-watchdog, runs cache-sync.
+    - BACKUP: settings.json backed up to .pre-migration.bak before migration.
+
+48. CREATED /ralphtemplatetest with TESTER role (Role 5)
+    - WHY: User requested test-first workflow. AI should not code simply to pass tests.
+    - HOW: Tester creates tests in /tmp/ralph-test-sandbox-SESSION_ID/ BEFORE Builder implements.
+      Tests verify expected behavior, not implementation details. Sandbox cleaned via trap EXIT.
+    - TOGGLE: TESTINGOFF in arguments strips all testing sections from generated prompt.
+    - TRADEOFF: Two command files (ralphtemplate.md + ralphtemplatetest.md) to maintain.
+      But user explicitly requested separate command, and TESTINGOFF toggle keeps the interface clean.
+
+49. CONFIRMED settings.json Stop hooks are MORE reliable than plugin hooks.json
+    - EVIDENCE: GitHub #10875 — plugin hooks.json JSON output is NOT captured/parsed by Claude Code.
+      Settings.json hooks work correctly. Same stdin JSON (session_id, last_assistant_message, etc.).
+    - IMPACT: The hybrid approach is objectively better, not just a workaround.
+
+50. CREATED test-migration.sh (13 tests)
+    - Covers: migration adds Stop hook, disables plugin, preserves other plugins, removes watchdog,
+      preserves other SessionStart hooks, creates local commands, uses absolute paths, creates backup,
+      points to repo, is idempotent. Rollback: re-enables plugin, removes Stop hook, re-adds watchdog.
+
+### Research Findings (session 12)
+
+Three parallel research agents investigated:
+
+1. SETTINGS.JSON HOOK PARITY: Stop hooks in settings.json receive identical stdin JSON as plugin hooks.
+   All 7 fields confirmed: session_id, transcript_path, cwd, permission_mode, hook_event_name,
+   stop_hook_active, last_assistant_message. Source: Claude Code official docs + GitHub issues.
+
+2. LOCAL COMMAND RESOLUTION: Plugin commands are namespaced (/ralph-loop:ralph-loop), local commands
+   are not (/ralph-loop). They never conflict. Priority: CLI flag > project > user > plugin.
+   ${CLAUDE_PLUGIN_ROOT} is undefined in local commands — absolute paths required.
+
+3. PLUGIN DISABLING: Setting enabledPlugins to false does NOT remove marketplace checkout, does NOT
+   affect other plugins, does NOT clean up cache. installed_plugins.json entry persists.
+   Known bugs: disabled plugins may still show tools (#9996), may re-enable (#28554).
+
+### Surprises (session 12)
+
+- The hybrid approach was available from session 1. Settings.json already had SessionStart and
+  PostToolUse hooks — adding a Stop hook was always trivially possible. 10 sessions of cache-sync
+  work could have been avoided.
+- Settings.json hooks are MORE reliable than plugin hooks (GitHub #10875). The migration is not
+  just a workaround — it's an upgrade.
+- Parallel research agents (3 running simultaneously) answered all architectural uncertainty in
+  under 60 seconds. Previous sessions spent multiple iterations on sequential trial-and-error.
+  The Researcher + parallel agents pattern should be the default approach.
+- The TESTINGOFF toggle as a string flag in arguments works because it's an unusual all-caps
+  compound word. No false positives observed in testing.
+
+### Test Suite Summary (session 12)
+
+Total: 95 tests across 8 suites, all passing
+- test-passphrase-detection.sh: 18
+- test-multi-terminal.sh: 4
+- test-rename-migration.sh: 13
+- test-cache-watchdog.sh: 7
+- test-consolidation.sh: 10
+- test-lifecycle.sh: 18
+- test-hook-input.sh: 12
+- test-migration.sh: 13 (NEW)
