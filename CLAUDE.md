@@ -3,11 +3,11 @@
 ## Hybrid Architecture (session 12 — replaces plugin approach)
 
 MIGRATED (session 12): Ralph loop now runs as local commands + settings.json Stop hook.
-The marketplace plugin `ralph-loop@claude-plugins-official` is DISABLED (set to false).
+The marketplace plugin `ralph-loop@claude-plugins-official` entry is REMOVED from enabledPlugins (not just disabled — prevents GitHub #28554 spontaneous re-enable).
 
 ARCHITECTURE:
 - Stop hook: `~/.claude/settings.json` -> `bash $REPO/scripts/stop-hook.sh`
-- Commands: `~/.claude/commands/ralph-loop.md`, `cancel-ralph.md`, `ralph-loop-help.md`, `ralphtemplatetest.md`
+- Commands: `~/.claude/commands/ralph-loop.md`, `cancel-ralph.md`, `ralph-loop-help.md`, `ralphtemplate.md`, `ralphtemplatetest.md`
 - Source of truth: This repo (`$REPO/`)
 
 RULE: After ANY edit to scripts/ or commands/, start a NEW session (hooks cached at session start).
@@ -67,22 +67,25 @@ Source: https://code.claude.com/docs/en/hooks
 - `.orphaned_at` is undocumented; Claude Code loads from `marketplaces/` git checkout (NOT `installPath`)
 - NOTE: After hybrid migration, cache-sync.sh is only needed for rollback scenarios.
 
-## Passphrase System
+## Passphrase System (updated session 15)
 
-- Setup auto-generates `WORD NNNN WORD NNNN WORD NNNN` format (materials x animals x science domains)
+- Passphrases generated via Bash tool: `echo "RALPH-$(head -c 24 /dev/urandom | xxd -p | tr -d '\n')"`
+- Format: `RALPH-` prefix + 48 hex chars from /dev/urandom (TRUE OS randomness, zero LLM bias)
+- PREVIOUS (sessions 9-14): `WORD NNNN WORD NNNN WORD NNNN` format — DEPRECATED due to LLM token bias (MARBLE, CONDOR, LATTICE repeated)
 - User-provided promises get prefixed: `PASSPHRASE::USER_PROMISE`
-- ~8 trillion combinations, zero false-positive risk in practice
-- Detection still uses `grep -Fx` — the passphrase itself prevents false positives
+- Detection uses `grep -Fx` — RALPH- prefix prevents false matches against hex in code output
 
-## Known Risks (as of 2026-03-05, updated session 12)
+## Known Risks (as of 2026-03-06, updated session 15)
 
-50 decisions across 12 sessions (see LEARNINGS.md for full history). Active items only:
+56 decisions across 15 sessions (see LEARNINGS.md for full history). Active items only:
 
 - RESOLVED (session 12): `/plugin update` overwrite problem — hybrid migration eliminates this entirely. Hook reads from repo, not marketplace.
 - KNOWN-BEHAVIOR: Hook changes require a NEW session. Claude Code caches hook SCRIPT CONTENT at session start. Editing hook files on disk has NO effect on the running session's hooks.
 - KNOWN-BEHAVIOR: nullglob only applies to glob patterns (`*`, `?`, `[...]`). Literal paths bypass it. Use char-class trick: `ralph-loop.loca[l].md`.
 - KNOWN-BUG (GitHub #9996): Disabled plugins may still show tools in slash command list. Cosmetic only — local commands take priority.
-- KNOWN-BUG (GitHub #28554): Disabled plugins may re-enable on subsequent sessions. Monitor settings.json after updates.
+- RESOLVED (session 14): GitHub #28554 double-fire risk eliminated — plugin entry removed entirely from enabledPlugins (not just disabled). No entry = nothing to spontaneously re-enable.
+- RESOLVED (session 15): LLM passphrase bias — replaced word arrays with /dev/urandom hex hash.
+- RESOLVED (session 15): Prompt sometimes not generated — added CRITICAL always-generate guard + unambiguous template delimiters.
 - NOTED: Bash RANDOM 15-bit modulo bias (0.006%) — not security-relevant.
 - NOTED: stop_hook_active intentionally NOT used as exit guard.
 - NOTED: Live hook JSON fields (session_id, last_assistant_message) still not verified via actual hook fire event. All code has fallbacks.
@@ -96,7 +99,7 @@ The learnings file is also renamed to match. This is a one-time migration per se
 NOTE: Frontmatter `session_id` is now updated during rename (via sed in stop-hook.sh).
 Both filename and frontmatter use the hook session_id after first iteration.
 
-## Original Plugin vs Our Patches (HISTORICAL — plugin now disabled)
+## Original Plugin vs Our Patches (HISTORICAL — plugin entry removed from enabledPlugins)
 
 The original plugin's stop-hook.sh differs from our version in key ways:
 
@@ -109,17 +112,18 @@ The original plugin's stop-hook.sh differs from our version in key ways:
 | Frontmatter awk | Skips ALL `---` lines | Only skips first two `---` (frontmatter) |
 | Rename on first iter | None | flock-protected rename + frontmatter update |
 
-NOTE (session 12): After hybrid migration, our version runs from settings.json Stop hook pointing
-directly to the repo. The marketplace plugin is disabled. This table is kept for reference only.
+NOTE (session 14): After hybrid migration, our version runs from settings.json Stop hook pointing
+directly to the repo. The plugin entry is removed from enabledPlugins (not just disabled).
+Marketplace directory and installed_plugins.json entry persist (managed by Claude Code, harmless).
 
 ## Ralph Loop Best Practices
 
 - ALWAYS set `--completion-promise` to avoid infinite loops with no exit signal
 - ALWAYS set `--max-iterations` as a safety bound (10-30 typical)
 - Running with `completion_promise: null` means the loop runs until max_iterations — no early exit possible
-- Hook changes require a NEW session to take effect (cache-sync updates files on disk but running hooks are cached)
+- Hook changes require a NEW session to take effect (edits to files on disk have no effect — hooks are cached at session start)
 
-## Ralphtemplate System (sessions 9-12)
+## Ralphtemplate System (sessions 9-15)
 
 TWO variants available:
 - `/ralphtemplate` — 4 roles: Builder, Challenger, Proxy, Researcher
@@ -133,8 +137,9 @@ The Tester (Role 5, `/ralphtemplatetest` only) creates tests in `/tmp/ralph-test
 BEFORE the Builder writes implementation code. Tests verify expected BEHAVIOR, not implementation details.
 Post-completion: full test suite re-run; sandbox cleaned up. Toggle off with TESTINGOFF in arguments.
 
-Auto-generates a unique passphrase (`WORD NNNN WORD NNNN WORD NNNN`) from MATERIALS/ANIMALS/SCIENCE
-arrays. Sidesteps the `<promise>` tag issue entirely — no XML tags needed at any point.
+Auto-generates a unique passphrase via Bash tool (`/dev/urandom` hex hash with RALPH- prefix).
+Both commands include a CRITICAL always-generate guard — prompt is ALWAYS output regardless of argument content.
+Template boundaries use `=== TEMPLATE START/END ===` markers (not `---`) to avoid YAML frontmatter ambiguity.
 
 ## Cache Sync (LEGACY — only needed for rollback to plugin approach)
 
@@ -142,8 +147,33 @@ arrays. Sidesteps the `<promise>` tag issue entirely — no XML tags needed at a
 After hybrid migration (session 12), this is only needed if rolling back to the plugin approach.
 The rollback script (`scripts/rollback-to-plugin.sh`) calls cache-sync.sh automatically.
 
-## Migration Scripts (session 12)
+## Documentation Diagrams (session 13)
+
+HTML diagrams in `docs/` visualize system architecture. Screenshots in `docs/screenshot-*.png`.
+When architecture changes (roles, hook source, flow), update diagrams AND retake screenshots.
+
+Files:
+- `docs/diagram.html` — v2 system architecture (5 roles, hybrid hooks, all phases including sandbox)
+- `docs/ralphtemplatetest-diagram.html` — /ralphtemplatetest 5-role system, TESTINGOFF toggle, sandbox flow
+- `docs/before-after-diagram.html` — Before/after comparison (original plugin vs patched hybrid)
+- `docs/system-improvements-diagram.html` — All fixes, stats, roles, test suites
+
+Screenshots: `google-chrome --headless --disable-gpu --screenshot="output.png" --window-size=1920,2200 "file://input.html"`
+
+## Migration & Recovery Scripts
 
 - `scripts/migrate-to-hybrid.sh` — Migrate from plugin to hybrid (local commands + settings.json hooks)
 - `scripts/rollback-to-plugin.sh` — Rollback hybrid to plugin approach
 - `scripts/test-migration.sh` — 13 tests for migration and rollback (uses mock HOME)
+- `RESTORE/restore-hybrid.sh` — Idempotent health check + fix for hybrid state (run anytime)
+- `RESTORE/README.md` — Symptom-to-cause table and usage guide
+
+RESTORE/restore-hybrid.sh checks and fixes 6 categories:
+1. Plugin entry in enabledPlugins (removes if present)
+2. Stop hook existence and path (adds/corrects)
+3. Stop hook timeout (ensures >= 60s)
+4. Cache-watchdog hook (removes if present — unnecessary after migration)
+5. Local commands (restores with absolute paths if missing or using CLAUDE_PLUGIN_ROOT)
+6. Repo script integrity (warns if stop-hook.sh or setup-ralph-loop.sh missing)
+
+Use `--dry-run` for health checks without changes. Use `--quiet` for minimal output.

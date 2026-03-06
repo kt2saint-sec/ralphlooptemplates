@@ -53,7 +53,7 @@ Execute the setup script to initialize the Ralph loop:
 
 Please work on the task. When you try to exit, the Ralph loop will feed the SAME PROMPT back to you for the next iteration. You'll see your previous work in files and git history, allowing you to iterate and improve.
 
-CRITICAL RULE: If a completion passphrase is set, you may ONLY output it on its own line when the statement is completely and unequivocally TRUE. The passphrase is auto-generated (WORD NNNN WORD NNNN WORD NNNN format) and shown in the setup output. Do not output false promises to escape the loop. The loop continues until genuine completion.
+CRITICAL RULE: If a completion passphrase is set, you may ONLY output it on its own line when the statement is completely and unequivocally TRUE. The passphrase is auto-generated (RALPH- prefix + hex hash from /dev/urandom) and shown in the setup output. Do not output false promises to escape the loop. The loop continues until genuine completion.
 CMDEOF
 # Replace placeholder with actual repo path
 sed -i "s|REPO_PLACEHOLDER|$REPO|g" "$COMMANDS_DIR/ralph-loop.md"
@@ -86,17 +86,17 @@ else
   echo "OK: Added Stop hook pointing to $REPO/scripts/stop-hook.sh"
 fi
 
-# Step 3: Disable plugin
+# Step 3: Remove plugin entry entirely (prevents GitHub #28554 spontaneous re-enable)
 echo ""
-echo "--- Step 3: Disable plugin ---"
+echo "--- Step 3: Remove plugin entry ---"
 CURRENT=$(jq -r '.enabledPlugins["ralph-loop@claude-plugins-official"] // "missing"' "$SETTINGS")
-if [[ "$CURRENT" == "true" ]]; then
+if [[ "$CURRENT" != "missing" ]]; then
   TEMP=$(mktemp)
-  jq '.enabledPlugins["ralph-loop@claude-plugins-official"] = false' "$SETTINGS" > "$TEMP"
+  jq 'del(.enabledPlugins["ralph-loop@claude-plugins-official"])' "$SETTINGS" > "$TEMP"
   mv "$TEMP" "$SETTINGS"
-  echo "OK: Disabled ralph-loop@claude-plugins-official"
+  echo "OK: Removed ralph-loop@claude-plugins-official from enabledPlugins"
 else
-  echo "SKIP: Plugin already disabled or missing (value: $CURRENT)"
+  echo "SKIP: Plugin entry already absent"
 fi
 
 # Step 4: Remove cache-watchdog SessionStart hook (no longer needed)
@@ -119,7 +119,7 @@ echo "ROLLBACK (if needed):"
 echo "  bash $REPO/scripts/rollback-to-plugin.sh"
 echo ""
 echo "WHAT CHANGED:"
-echo "  - Plugin disabled (commands no longer at /ralph-loop:ralph-loop)"
+echo "  - Plugin entry removed from enabledPlugins (prevents #28554 re-enable)"
 echo "  - Stop hook in settings.json (reads directly from repo, no cache-sync needed)"
 echo "  - Local commands: /ralph-loop, /cancel-ralph, /ralph-loop-help"
 echo "  - Workflow: edit -> new session (was: edit -> cache-sync -> new session)"

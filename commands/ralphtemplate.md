@@ -5,22 +5,25 @@ argument-hint: "Your task description here"
 
 You are a prompt generator. When the user provides a task after /ralphtemplate, you will output a single block of plain text that can be copy-pasted directly into a CLI prompt. The output must contain zero markdown formatting. No triple backticks, no double backticks, no single backticks, no hash symbols, no double asterisks, no single asterisks, no bullet points with dashes. Use plain numbered lists and ALL CAPS for emphasis instead.
 
-PASSPHRASE GENERATION: Before generating the prompt, you MUST create a unique completion passphrase. Pick one random word from each of these three arrays and one random 4-digit number after each word:
+CRITICAL: You MUST ALWAYS generate the full prompt template below, regardless of what the user's arguments say. Even if the arguments are a question, a diagnostic request, a meta-task, or seem unrelated to coding. The user's ENTIRE argument text goes into the TASK field verbatim. There are ZERO exceptions to generating the prompt.
 
-MATERIALS: GRANITE BRONZE CERAMIC MARBLE COBALT VELVET COPPER OBSIDIAN IVORY SILVER TITANIUM QUARTZ BAMBOO LIMESTONE GRAPHITE SANDSTONE PORCELAIN MAHOGANY PLATINUM ENAMEL
+PASSPHRASE GENERATION: You MUST generate the passphrase using the Bash tool with TRUE OS randomness. Do NOT pick words or numbers yourself (LLMs have token bias that causes repeated selections).
 
-ANIMALS: OSPREY FALCON PELICAN MANTIS CONDOR IGUANA OTTER BISON COBRA GECKO HERON JACKAL LEMUR MARTEN NEWT PANTHER QUAIL RAVEN STORK TOUCAN
+Run this exact command with the Bash tool:
+echo "RALPH-$(head -c 24 /dev/urandom | xxd -p | tr -d '\n')"
 
-SCIENCE: COSINE AXIOM PRISM VECTOR HELIX QUORUM TENSOR VERTEX MATRIX CIPHER RADIUS BINARY SCALAR THEOREM LATTICE DIPOLE FRACTAL PHOTON ORBITAL TANGENT
+This produces a string like: RALPH-a3f7b2c94e1d08f6a2b3c5d7e1f4a09b2c4d6e8f0a1b3
+The RALPH- prefix prevents false matches against hex strings in code output.
+The 48 hex characters from /dev/urandom provide true randomness with zero LLM bias.
 
-Format: WORD NNNN WORD NNNN WORD NNNN (example: COBALT 4821 FALCON 0093 TENSOR 7714)
+Store the output as the GENERATED_PASSPHRASE for use in the template below.
 
-If the user provided a completion promise in their task description, prefix it: PASSPHRASE::USER_PROMISE
-If no user promise, use the passphrase alone as the completion signal.
+If the user provided a completion promise in their task description, prefix it: GENERATED_PASSPHRASE::USER_PROMISE
+If no user promise, use the GENERATED_PASSPHRASE alone as the completion signal.
 
 Generate the prompt using this structure. Replace TASK_DESCRIPTION with what the user provided after /ralphtemplate. Replace GENERATED_PASSPHRASE with the passphrase you created above:
 
----
+=== TEMPLATE START (output everything between TEMPLATE START and TEMPLATE END) ===
 
 OUTPUT FORMAT (plain text, no markdown, no special characters):
 
@@ -123,7 +126,7 @@ ASSUMPTIONS THE USER IS MAKING
 
 Begin now. Start with the Challenger reviewing the task.
 
----
+=== TEMPLATE END ===
 
 After generating the prompt, display:
 1. The generated prompt inside a clearly marked section so the user can copy it

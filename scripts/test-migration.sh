@@ -59,14 +59,14 @@ else
   fail "Stop hook NOT found in settings.json"
 fi
 
-# --- Test 2: Migration disables plugin ---
+# --- Test 2: Migration removes plugin entry ---
 echo ""
-echo "Test 2: Migration disables ralph-loop plugin"
-PLUGIN_STATE=$(jq -r '.enabledPlugins["ralph-loop@claude-plugins-official"]' "$MOCK_SETTINGS")
-if [[ "$PLUGIN_STATE" == "false" ]]; then
-  pass "Plugin disabled"
+echo "Test 2: Migration removes ralph-loop plugin entry"
+PLUGIN_STATE=$(jq -r '.enabledPlugins["ralph-loop@claude-plugins-official"] // "missing"' "$MOCK_SETTINGS")
+if [[ "$PLUGIN_STATE" == "missing" ]]; then
+  pass "Plugin entry removed"
 else
-  fail "Plugin state: $PLUGIN_STATE (expected false)"
+  fail "Plugin state: $PLUGIN_STATE (expected missing)"
 fi
 
 # --- Test 3: Other plugins unaffected ---

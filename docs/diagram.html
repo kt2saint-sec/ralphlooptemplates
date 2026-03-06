@@ -3,47 +3,34 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ralph Loop System Architecture</title>
+<title>Ralph Loop System Architecture v2</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     background: #0a0e17;
     color: #e0e6ed;
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    padding: 24px 40px;
+    padding: 24px 36px;
     width: 1200px;
-    height: 100vh;
-    overflow: hidden;
   }
 
   h1 {
-    text-align: center;
-    font-size: 26px;
-    font-weight: 700;
-    margin-bottom: 4px;
+    text-align: center; font-size: 26px; font-weight: 700; margin-bottom: 2px;
     background: linear-gradient(135deg, #00d4ff, #7b61ff, #ff6b9d);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   }
   .subtitle {
-    text-align: center;
-    color: #6b7a8d;
-    font-size: 11px;
-    margin-bottom: 18px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
+    text-align: center; color: #6b7a8d; font-size: 11px;
+    margin-bottom: 18px; letter-spacing: 2px; text-transform: uppercase;
   }
 
   .main-flow {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0;
+    display: flex; flex-direction: column; align-items: center; gap: 0;
   }
 
   .arrow-down {
-    width: 2px; height: 16px;
-    background: linear-gradient(to bottom, #00d4ff, #7b61ff);
+    width: 2px; height: 14px;
+    background: linear-gradient(to bottom, #3a4555, #7b61ff);
     position: relative;
   }
   .arrow-down::after {
@@ -53,57 +40,47 @@
   }
   .arrow-down.green { background: linear-gradient(to bottom, #44ff88, #22aa55); }
   .arrow-down.green::after { border-top-color: #22aa55; }
+  .arrow-down.pink { background: linear-gradient(to bottom, #ff6b9d, #ff6b9d88); }
+  .arrow-down.pink::after { border-top-color: #ff6b9d88; }
+  .arrow-down.gold { background: linear-gradient(to bottom, #ffcc44, #aa8822); }
+  .arrow-down.gold::after { border-top-color: #aa8822; }
 
-  /* Top row: User + Command side by side */
+  /* Top row */
   .top-row {
-    display: flex;
-    align-items: center;
-    gap: 16px;
+    display: flex; align-items: center; gap: 14px;
   }
   .user-box {
     background: linear-gradient(135deg, #1a2332, #1e2a3a);
-    border: 2px solid #00d4ff;
-    border-radius: 10px;
-    padding: 10px 24px;
-    text-align: center;
+    border: 2px solid #00d4ff; border-radius: 10px;
+    padding: 10px 22px; text-align: center;
     box-shadow: 0 0 15px rgba(0, 212, 255, 0.12);
   }
-  .user-box .label { font-size: 16px; font-weight: 600; color: #00d4ff; }
-  .user-box .desc { font-size: 11px; color: #8899aa; margin-top: 2px; }
+  .user-box .label { font-size: 15px; font-weight: 600; color: #00d4ff; }
+  .user-box .desc { font-size: 10px; color: #8899aa; margin-top: 2px; }
 
-  .top-arrow {
-    color: #7b61ff;
-    font-size: 20px;
-    font-weight: 700;
-  }
+  .top-arrow { color: #7b61ff; font-size: 20px; font-weight: 700; }
 
   .command-box {
     background: linear-gradient(135deg, #1a1a2e, #252545);
-    border: 2px solid #7b61ff;
-    border-radius: 10px;
-    padding: 10px 20px;
-    text-align: center;
+    border: 2px solid #7b61ff; border-radius: 10px;
+    padding: 10px 18px; text-align: center;
     box-shadow: 0 0 15px rgba(123, 97, 255, 0.12);
   }
   .command-box .cmd {
-    font-family: 'Courier New', monospace;
-    font-size: 13px;
-    color: #b8a9ff;
+    font-family: 'Courier New', monospace; font-size: 12px; color: #b8a9ff;
   }
   .command-box .cmd-desc {
-    font-size: 10px;
-    color: #7b7a9d;
-    margin-top: 2px;
+    font-size: 10px; color: #7b7a9d; margin-top: 2px;
+  }
+  .or-label {
+    font-size: 10px; color: #6b7a8d; font-weight: 600;
   }
 
   /* Phase containers */
   .phase {
     background: linear-gradient(135deg, #111827, #151d2b);
-    border: 1px solid #2a3545;
-    border-radius: 12px;
-    padding: 14px 18px;
-    width: 1100px;
-    position: relative;
+    border: 1px solid #2a3545; border-radius: 12px;
+    padding: 14px 18px; width: 1120px; position: relative;
   }
   .phase-header {
     display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
@@ -111,15 +88,20 @@
   .phase-num {
     background: linear-gradient(135deg, #7b61ff, #5b3fff);
     color: white; font-weight: 700; font-size: 11px;
-    padding: 3px 10px; border-radius: 20px;
+    padding: 3px 10px; border-radius: 20px; white-space: nowrap;
   }
-  .phase-title { font-size: 15px; font-weight: 600; color: #c8d0dc; }
+  .phase-num.pink { background: linear-gradient(135deg, #ff6b9d, #cc4477); }
+  .phase-num.green { background: linear-gradient(135deg, #22aa55, #118844); }
+  .phase-num.gold { background: linear-gradient(135deg, #cc9922, #886611); }
+  .phase-title { font-size: 14px; font-weight: 600; color: #c8d0dc; }
+  .phase-desc { font-size: 10px; color: #6b7a8d; margin-left: auto; font-style: italic; }
 
-  .roles-row { display: flex; gap: 12px; justify-content: center; }
+  .roles-row { display: flex; gap: 10px; justify-content: center; }
 
+  /* Role cards */
   .role-card {
-    flex: 1; border-radius: 10px; padding: 12px 14px;
-    position: relative; min-height: 100px;
+    flex: 1; border-radius: 10px; padding: 11px 13px;
+    position: relative; min-height: 90px;
   }
   .role-card.challenger {
     background: linear-gradient(135deg, #1a0a0a, #2a1515);
@@ -133,66 +115,84 @@
     background: linear-gradient(135deg, #0a0a1a, #15152a);
     border: 1px solid #4488ff;
   }
+  .role-card.researcher {
+    background: linear-gradient(135deg, #1a1a0a, #2a2515);
+    border: 1px solid #ffcc44;
+  }
+  .role-card.tester {
+    background: linear-gradient(135deg, #1a0a1a, #2a1528);
+    border: 1px solid #ff6b9d;
+  }
 
   .role-name {
-    font-size: 12px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 1px; margin-bottom: 6px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; margin-bottom: 5px;
   }
   .challenger .role-name { color: #ff6666; }
   .proxy .role-name { color: #66ffaa; }
   .builder .role-name { color: #66aaff; }
+  .researcher .role-name { color: #ffcc44; }
+  .tester .role-name { color: #ff6b9d; }
 
   .role-card ul { list-style: none; padding: 0; }
   .role-card li {
-    font-size: 11px; color: #99aabb; padding: 2px 0 2px 14px;
-    position: relative;
+    font-size: 10px; color: #99aabb; padding: 2px 0 2px 12px;
+    position: relative; line-height: 1.35;
   }
   .role-card li::before {
-    content: ''; position: absolute; left: 0; top: 7px;
-    width: 5px; height: 5px; border-radius: 50%;
+    content: ''; position: absolute; left: 0; top: 6px;
+    width: 4px; height: 4px; border-radius: 50%;
   }
   .challenger li::before { background: #ff4444; }
   .proxy li::before { background: #44ff88; }
   .builder li::before { background: #4488ff; }
+  .researcher li::before { background: #ffcc44; }
+  .tester li::before { background: #ff6b9d; }
 
-  /* Challenger <-> Proxy exchange center column */
+  .new-badge {
+    display: inline-block; font-size: 7px; font-weight: 700;
+    padding: 1px 4px; border-radius: 3px; vertical-align: middle;
+    background: rgba(255, 204, 68, 0.2); color: #ffcc44;
+    border: 1px solid rgba(255, 204, 68, 0.3); margin-left: 3px;
+  }
+
+  /* Challenger <-> Proxy exchange */
   .exchange-col {
     display: flex; flex-direction: column; align-items: center;
-    justify-content: center; min-width: 100px; gap: 6px;
-    position: relative;
+    justify-content: center; min-width: 90px; gap: 4px;
   }
   .ex-row {
     display: flex; align-items: center; gap: 4px;
-    font-size: 10px; color: #6b7a8d; white-space: nowrap;
+    font-size: 9px; color: #6b7a8d; white-space: nowrap;
   }
   .ex-line {
-    width: 24px; height: 2px;
+    width: 20px; height: 2px;
     background: linear-gradient(to right, #ff4444, #44ff88);
   }
   .ex-line.rev { background: linear-gradient(to left, #ff4444, #44ff88); }
+  .ex-line.gold { background: linear-gradient(to right, #44ff88, #ffcc44); }
+  .ex-line.gold-rev { background: linear-gradient(to left, #44ff88, #ffcc44); }
   .ex-loop-label {
-    font-size: 9px; color: #ffcc44; font-weight: 700;
+    font-size: 8px; color: #ffcc44; font-weight: 700;
     text-align: center; letter-spacing: 0.5px;
     background: rgba(255, 204, 68, 0.08);
     border: 1px solid rgba(255, 204, 68, 0.2);
-    border-radius: 4px; padding: 2px 6px;
-    margin-top: 2px;
+    border-radius: 4px; padding: 2px 5px;
   }
 
   /* Builder loop container */
   .loop-container {
-    display: flex; align-items: stretch; gap: 0; width: 1100px;
+    display: flex; align-items: stretch; gap: 0; width: 1120px;
   }
   .loop-main {
     flex: 1;
     background: linear-gradient(135deg, #111827, #151d2b);
     border: 1px solid #2a3545;
     border-radius: 12px 0 0 12px;
-    padding: 14px 18px;
-    border-right: none;
+    padding: 14px 18px; border-right: none;
   }
   .loop-sidebar {
-    width: 190px;
+    width: 200px;
     background: linear-gradient(135deg, #1a1420, #201828);
     border: 1px solid #ff6b9d;
     border-radius: 0 12px 12px 0;
@@ -201,22 +201,27 @@
     box-shadow: 0 0 15px rgba(255, 107, 157, 0.08);
   }
   .loop-sidebar .sidebar-title {
-    color: #ff6b9d; font-size: 11px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;
+    color: #ff6b9d; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;
   }
   .loop-sidebar .hook-step {
-    font-size: 10px; color: #aa8899; padding: 2px 0 2px 12px;
+    font-size: 9px; color: #aa8899; padding: 2px 0 2px 12px;
     position: relative;
   }
   .loop-sidebar .hook-step::before {
-    content: ''; position: absolute; left: 0; top: 6px;
-    width: 5px; height: 5px; border-radius: 50%; background: #ff6b9d;
+    content: ''; position: absolute; left: 0; top: 5px;
+    width: 4px; height: 4px; border-radius: 50%; background: #ff6b9d;
+  }
+  .hook-source {
+    font-size: 8px; color: #886677; margin-top: 6px;
+    padding-top: 4px; border-top: 1px solid #2a2030;
+    font-style: italic;
   }
 
   .iteration-format {
     background: #0d1117; border: 1px solid #2a3545;
-    border-radius: 6px; padding: 8px 12px;
-    font-family: 'Courier New', monospace; font-size: 10px;
+    border-radius: 6px; padding: 7px 12px;
+    font-family: 'Courier New', monospace; font-size: 9px;
     color: #8899aa; margin-top: 8px;
   }
   .iter-label { color: #ffcc44; font-weight: 700; }
@@ -224,21 +229,21 @@
 
   /* Loop-back arrow */
   .loop-back {
-    position: relative; width: 1100px; height: 36px;
+    position: relative; width: 1120px; height: 32px;
   }
   .loop-back-line {
-    position: absolute; right: 94px; top: 0;
-    width: 2px; height: 36px;
+    position: absolute; right: 100px; top: 0;
+    width: 2px; height: 32px;
     background: linear-gradient(to bottom, #ff6b9d, #ff6b9d88);
   }
   .loop-back-horiz {
-    position: absolute; right: 94px; top: 34px;
-    width: 460px; height: 2px;
+    position: absolute; right: 100px; top: 30px;
+    width: 480px; height: 2px;
     background: linear-gradient(to left, #ff6b9d88, #ff6b9d);
   }
   .loop-back-up {
-    position: absolute; right: 554px; top: 0;
-    width: 2px; height: 36px;
+    position: absolute; right: 580px; top: 0;
+    width: 2px; height: 32px;
     background: linear-gradient(to top, #ff6b9d, #ff6b9d44);
   }
   .loop-back-up::after {
@@ -247,8 +252,8 @@
     border-bottom: 7px solid #ff6b9d;
   }
   .loop-label {
-    position: absolute; right: 210px; top: 10px;
-    font-size: 10px; color: #ff6b9d; font-weight: 600;
+    position: absolute; right: 220px; top: 8px;
+    font-size: 9px; color: #ff6b9d; font-weight: 600;
     letter-spacing: 1px; text-transform: uppercase;
     background: #0a0e17; padding: 1px 6px;
   }
@@ -257,71 +262,93 @@
   .completion-box {
     background: linear-gradient(135deg, #0a2a1a, #153520);
     border: 2px solid #44ff88; border-radius: 10px;
-    padding: 10px 24px; text-align: center;
+    padding: 10px 22px; text-align: center;
     box-shadow: 0 0 20px rgba(68, 255, 136, 0.12);
-    width: 1100px;
+    width: 1120px;
   }
   .completion-box .label {
-    font-size: 14px; font-weight: 600; color: #44ff88;
+    font-size: 13px; font-weight: 600; color: #44ff88;
     font-family: 'Courier New', monospace;
   }
   .completion-items {
-    display: flex; gap: 16px; justify-content: center; margin-top: 6px;
+    display: flex; gap: 12px; justify-content: center; margin-top: 6px; flex-wrap: wrap;
   }
   .completion-item {
-    font-size: 10px; color: #88bbaa; padding: 3px 10px;
+    font-size: 9px; color: #88bbaa; padding: 3px 10px;
     background: rgba(68, 255, 136, 0.08);
     border-radius: 5px; border: 1px solid rgba(68, 255, 136, 0.15);
   }
 
-  /* Tip */
-  .tip-box {
-    background: linear-gradient(135deg, #1a1a10, #252518);
-    border: 1px solid #ffcc44; border-radius: 10px;
-    padding: 10px 18px; width: 1100px; margin-top: 6px;
-    display: flex; align-items: center; gap: 12px;
-    box-shadow: 0 0 10px rgba(255, 204, 68, 0.06);
+  /* Sandbox revoke */
+  .revoke-box {
+    background: linear-gradient(135deg, #2a0a0a, #351515);
+    border: 1px dashed #ff4444; border-radius: 8px;
+    padding: 6px 14px; width: 1120px;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 10px; color: #ff8888;
   }
-  .tip-icon { font-size: 18px; flex-shrink: 0; }
-  .tip-content .tip-title {
-    font-size: 11px; font-weight: 700; color: #ffcc44; margin-bottom: 2px;
+  .revoke-box .revoke-icon { font-size: 14px; flex-shrink: 0; }
+
+  /* Hybrid info */
+  .hybrid-bar {
+    display: flex; gap: 10px; width: 1120px; margin-top: 4px;
   }
-  .tip-content .tip-text {
-    font-size: 10px; color: #aa9955; line-height: 1.4;
+  .hybrid-item {
+    flex: 1; background: linear-gradient(135deg, #111827, #151d2b);
+    border: 1px solid #2a3545; border-radius: 8px;
+    padding: 8px 12px; text-align: center;
   }
-  .tip-content code {
-    background: rgba(255, 204, 68, 0.1); padding: 0 4px;
-    border-radius: 3px; font-size: 10px; color: #ddbb66;
+  .hybrid-item .hi-label {
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; margin-bottom: 3px;
   }
+  .hybrid-item .hi-value {
+    font-size: 10px; color: #99aabb;
+    font-family: 'Courier New', monospace;
+  }
+  .hybrid-item.hook { border-color: #ff6b9d44; }
+  .hybrid-item.hook .hi-label { color: #ff6b9d; }
+  .hybrid-item.cmd { border-color: #7b61ff44; }
+  .hybrid-item.cmd .hi-label { color: #b8a9ff; }
+  .hybrid-item.detect { border-color: #44ff8844; }
+  .hybrid-item.detect .hi-label { color: #66ffaa; }
+  .hybrid-item.session { border-color: #00d4ff44; }
+  .hybrid-item.session .hi-label { color: #00d4ff; }
 </style>
 </head>
 <body>
 
-<h1>Ralph Loop System Architecture</h1>
-<p class="subtitle">Antagonistic Review + Proxy Decisions + Self-Iterating Loops</p>
+<h1>Ralph Loop System Architecture v2</h1>
+<p class="subtitle">5 Roles &middot; Researcher + Tester Subagents &middot; Hybrid Hook Architecture &middot; 50 Decisions / 12 Sessions</p>
 
 <div class="main-flow">
 
-  <!-- User -> Command (horizontal) -->
+  <!-- ═══ USER -> COMMAND ═══ -->
   <div class="top-row">
     <div class="user-box">
       <div class="label">User Has a Goal</div>
-      <div class="desc">Describes what to build using test-driven development</div>
+      <div class="desc">Describes what to build</div>
     </div>
     <div class="top-arrow">&#10132;</div>
     <div class="command-box">
-      <div class="cmd">/ralphtemplate "User describes goal using TDD"</div>
-      <div class="cmd-desc">Generates plain-text orchestrator prompt (no markdown - prevents Boris loop breakout)</div>
+      <div class="cmd">/ralphtemplate "task description"</div>
+      <div class="cmd-desc">4 roles &mdash; Builder, Challenger, Proxy, Researcher</div>
+    </div>
+    <div class="or-label">or</div>
+    <div class="command-box" style="border-color: #ff6b9d;">
+      <div class="cmd" style="color: #ff99bb;">/ralphtemplatetest "task description"</div>
+      <div class="cmd-desc">5 roles &mdash; adds Tester with sandbox + TESTINGOFF toggle</div>
     </div>
   </div>
 
   <div class="arrow-down"></div>
 
-  <!-- Phase 1: Challenger <-> Proxy with feedback loop -->
+  <!-- ═══ PHASE 1: CHALLENGE & NEGOTIATE ═══ -->
   <div class="phase">
     <div class="phase-header">
       <span class="phase-num">PHASE 1</span>
-      <span class="phase-title">Challenge &amp; Negotiate (loops until all answers reach 70%+ confidence)</span>
+      <span class="phase-title">Challenge &amp; Negotiate</span>
+      <span class="phase-desc">Loops until Challenger is satisfied or objections exhausted</span>
     </div>
     <div class="roles-row">
       <div class="role-card challenger">
@@ -345,15 +372,7 @@
           <div class="ex-line rev"></div>
           <span>answers</span>
         </div>
-        <div class="ex-loop-label">REPEATS UNTIL<br/>CONFIDENCE &ge; 70%</div>
-        <div class="ex-row">
-          <span>&lt; 70%</span>
-          <div class="ex-line rev"></div>
-        </div>
-        <div class="ex-row">
-          <div class="ex-line"></div>
-          <span>re-research</span>
-        </div>
+        <div class="ex-loop-label">REPEATS UNTIL<br/>SATISFIED</div>
       </div>
 
       <div class="role-card proxy">
@@ -362,9 +381,63 @@
           <li>Researches codebase, docs, conventions</li>
           <li>Reads CLAUDE.md, LEARNINGS.md, patterns</li>
           <li>Answers with best judgment + confidence %</li>
-          <li>If confidence &lt; 70%: re-researches deeper</li>
-          <li>Submits answer back to Challenger</li>
-          <li>Low-confidence decisions flagged REVIEWABLE</li>
+          <li>&lt;70% flagged REVIEWABLE</li>
+          <li>Never says "ask the user"</li>
+          <li style="color: #ffcc44;">If &lt;75% certain: delegates to Researcher</li>
+        </ul>
+      </div>
+
+      <div class="exchange-col">
+        <div class="ex-row">
+          <span>question</span>
+          <div class="ex-line gold"></div>
+        </div>
+        <div class="ex-row">
+          <div class="ex-line gold-rev"></div>
+          <span>findings</span>
+        </div>
+        <div class="ex-loop-label">ON DEMAND<br/>(&lt;75% CERTAIN)</div>
+      </div>
+
+      <div class="role-card researcher">
+        <div class="role-name">Researcher <span class="new-badge">NEW</span></div>
+        <ul>
+          <li>Independent, unbiased fact-finder</li>
+          <li>Subagents + web search + MCPs</li>
+          <li>Reports: Question, Sources, Findings</li>
+          <li>Confidence %, Caveats</li>
+          <li>Prevents multi-iteration dead ends</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down pink"></div>
+
+  <!-- ═══ PHASE 1.5: TESTER CREATES TESTS ═══ -->
+  <div class="phase" style="border-color: #ff6b9d44;">
+    <div class="phase-header">
+      <span class="phase-num pink">PHASE 1.5</span>
+      <span class="phase-title">Test-First: Tester Creates Tests Before Builder</span>
+      <span class="phase-desc">Only with /ralphtemplatetest (skipped if TESTINGOFF)</span>
+    </div>
+    <div class="roles-row">
+      <div class="role-card tester" style="flex: 2;">
+        <div class="role-name">Tester (Role 5) <span class="new-badge">NEW</span></div>
+        <ul>
+          <li>Researches expected behavior from Phase 1 decisions</li>
+          <li>Creates tests in sandbox: /tmp/ralph-test-sandbox-SESSION_ID/</li>
+          <li>Tests verify BEHAVIOR, not implementation details</li>
+          <li>Tests designed to fail initially (nothing implemented yet)</li>
+          <li>Builder has NOT seen test code at this point</li>
+        </ul>
+      </div>
+      <div class="role-card researcher" style="flex: 1;">
+        <div class="role-name">Researcher Assists</div>
+        <ul>
+          <li>Tester can delegate research questions</li>
+          <li>Edge case discovery</li>
+          <li>Framework/API behavior verification</li>
         </ul>
       </div>
     </div>
@@ -372,7 +445,7 @@
 
   <div class="arrow-down"></div>
 
-  <!-- Phase 2: Builder Loop -->
+  <!-- ═══ PHASE 2: BUILD & ITERATE ═══ -->
   <div class="loop-container">
     <div class="loop-main">
       <div class="phase-header">
@@ -381,13 +454,12 @@
       </div>
       <div class="roles-row">
         <div class="role-card builder" style="flex: 2;">
-          <div class="role-name">Builder (Test-Driven)</div>
+          <div class="role-name">Builder (Implements Iteratively)</div>
           <ul>
-            <li>Writes tests first, expects failures at current stage</li>
-            <li>Implements iteratively, tests after each change</li>
+            <li>Implements code, tests after each change</li>
             <li>Logs: what failed, root cause, fix applied, result</li>
             <li>Max N iterations before escalating</li>
-            <li>Writes brief retrospective each iteration</li>
+            <li style="color: #ffcc44;">If &lt;75% certain: delegates to Researcher</li>
           </ul>
         </div>
         <div class="role-card challenger" style="flex: 1;">
@@ -395,27 +467,35 @@
           <ul>
             <li>Reviews after each milestone</li>
             <li>Checks edge cases &amp; security</li>
-            <li>Checks performance at scale</li>
             <li>Can force redesign</li>
+          </ul>
+        </div>
+        <div class="role-card researcher" style="flex: 1;">
+          <div class="role-name">Researcher On-Call</div>
+          <ul>
+            <li>Builder delegates questions</li>
+            <li>Investigates before guessing</li>
+            <li>Returns structured findings</li>
           </ul>
         </div>
       </div>
       <div class="iteration-format">
         <span class="iter-label">Iteration 3</span> | Status: Auth middleware rewritten
-        | Root Cause: Token validation missing refresh check
+        | Research: Verified JWT refresh spec via RFC 6749
         | Fix: Added refresh token rotation | Result: <span class="iter-pass">PASS</span>
       </div>
     </div>
     <div class="loop-sidebar">
       <div class="sidebar-title">Stop Hook Engine</div>
       <div class="hook-step">Claude tries to exit</div>
-      <div class="hook-step">Hook reads last assistant message</div>
-      <div class="hook-step">Checks for passphrase match</div>
+      <div class="hook-step">Hook reads last_assistant_message</div>
+      <div class="hook-step">grep -Fx passphrase match</div>
       <div class="hook-step">No match: blocks exit</div>
-      <div class="hook-step">Feeds same prompt back</div>
+      <div class="hook-step">Re-feeds same prompt</div>
       <div class="hook-step">Increments iteration</div>
-      <div class="hook-step">Prepends learnings step</div>
+      <div class="hook-step">Prepends learnings</div>
       <div class="hook-step">Loop continues</div>
+      <div class="hook-source">Source: settings.json Stop hook<br/>(hybrid architecture, not plugin)</div>
     </div>
   </div>
 
@@ -424,27 +504,29 @@
     <div class="loop-back-line"></div>
     <div class="loop-back-horiz"></div>
     <div class="loop-back-up"></div>
-    <div class="loop-label">LOOP UNTIL PROMISE MET</div>
+    <div class="loop-label">LOOP UNTIL PASSPHRASE DETECTED OR MAX ITERATIONS</div>
   </div>
 
-  <!-- Phase 3: Completion -->
+  <!-- ═══ PHASE 3: VERIFY & COMPLETE ═══ -->
   <div class="phase" style="border-color: #44ff8844;">
     <div class="phase-header">
-      <span class="phase-num" style="background: linear-gradient(135deg, #22aa55, #118844);">PHASE 3</span>
+      <span class="phase-num green">PHASE 3</span>
       <span class="phase-title">Verify &amp; Complete</span>
     </div>
     <div class="roles-row">
       <div class="role-card builder" style="flex: 1; min-height: 70px;">
         <div class="role-name">Final Verification</div>
         <ul>
-          <li>All tests pass end-to-end</li>
-          <li>Unknown impacts disclosed</li>
+          <li>All project tests pass end-to-end</li>
+          <li>Completion checklist answered honestly</li>
+          <li>Outputs passphrase on its own line</li>
         </ul>
       </div>
       <div class="role-card challenger" style="flex: 1; min-height: 70px;">
         <div class="role-name">Final Review</div>
         <ul>
           <li>Validates completion criteria</li>
+          <li>Checks nothing was missed</li>
           <li>Approves for delivery</li>
         </ul>
       </div>
@@ -453,6 +535,7 @@
         <ul>
           <li>Extracts durable learnings</li>
           <li>Updates docs, deletes temp files</li>
+          <li>REVIEWABLE decisions listed</li>
         </ul>
       </div>
     </div>
@@ -460,26 +543,71 @@
 
   <div class="arrow-down green"></div>
 
-  <!-- Done -->
+  <!-- ═══ PASSPHRASE OUTPUT ═══ -->
   <div class="completion-box">
-    <div class="label">PASSPHRASE (auto-generated completion signal)</div>
+    <div class="label">COBALT 4821 FALCON 0093 TENSOR 7714</div>
     <div class="completion-items">
+      <div class="completion-item">Auto-generated passphrase (~8T combos)</div>
+      <div class="completion-item">grep -Fx exact line match</div>
+      <div class="completion-item">No XML tags anywhere</div>
       <div class="completion-item">Results in plain language</div>
       <div class="completion-item">REVIEWABLE decisions flagged</div>
-      <div class="completion-item">Learnings consolidated</div>
-      <div class="completion-item">Temp files deleted</div>
     </div>
   </div>
 
-  <!-- Tip -->
-  <div class="tip-box">
-    <div class="tip-icon">💡</div>
-    <div class="tip-content">
-      <div class="tip-title">Token-Saving Tip</div>
-      <div class="tip-text">
-        Write prompts to <code>.txt</code> files outside your project dir &rarr; <code>$(cat ~/prompts/task.txt)</code> in the ralph-loop command.
-        Use <code>model: "haiku"</code> agent to generate prompt files at ~$0.001 instead of Opus inline at ~$0.05+.
+  <div class="arrow-down gold"></div>
+
+  <!-- ═══ PHASE 3.5: SANDBOX TEST EXECUTION ═══ -->
+  <div class="phase" style="border-color: #ffcc4444;">
+    <div class="phase-header">
+      <span class="phase-num gold">PHASE 3.5</span>
+      <span class="phase-title">Sandbox Test Execution</span>
+      <span class="phase-desc">Only with /ralphtemplatetest (skipped if TESTINGOFF)</span>
+    </div>
+    <div class="roles-row">
+      <div class="role-card tester" style="flex: 2;">
+        <div class="role-name">Tester Runs Sandbox Tests</div>
+        <ul>
+          <li>Executes tests from /tmp/ralph-test-sandbox-SESSION_ID/</li>
+          <li>Tests target the Builder's actual implementation</li>
+          <li>Tests pass: promise stays valid, proceed to cleanup</li>
+          <li style="color: #ff8888;">Tests fail: promise REVOKED, Builder sent back to Phase 2</li>
+        </ul>
       </div>
+      <div class="role-card proxy" style="flex: 1;">
+        <div class="role-name">Sandbox Cleanup</div>
+        <ul>
+          <li>trap "rm -rf /tmp/ralph-test-sandbox-*" EXIT</li>
+          <li>/tmp is ephemeral (per-session)</li>
+          <li>No test code pollutes project tree</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Revoke path -->
+  <div class="revoke-box">
+    <div class="revoke-icon">&#8634;</div>
+    <div>If sandbox tests FAIL: passphrase revoked, Builder loops back to Phase 2 with test failure details. Promise is NOT honored until tests pass.</div>
+  </div>
+
+  <!-- ═══ HYBRID ARCHITECTURE BAR ═══ -->
+  <div class="hybrid-bar">
+    <div class="hybrid-item hook">
+      <div class="hi-label">Stop Hook</div>
+      <div class="hi-value">settings.json (not plugin)</div>
+    </div>
+    <div class="hybrid-item cmd">
+      <div class="hi-label">Commands</div>
+      <div class="hi-value">~/.claude/commands/ (global)</div>
+    </div>
+    <div class="hybrid-item detect">
+      <div class="hi-label">Detection</div>
+      <div class="hi-value">grep -Fx passphrase</div>
+    </div>
+    <div class="hybrid-item session">
+      <div class="hi-label">Session ID</div>
+      <div class="hi-value">Hook JSON + uuidgen fallback</div>
     </div>
   </div>
 

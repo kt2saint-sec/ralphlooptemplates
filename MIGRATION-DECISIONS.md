@@ -98,7 +98,7 @@ being ignored). The fundamental problem: Claude Code loads plugins from a git ch
 `/plugin update` overwrites. No amount of cache-sync tooling can prevent this.
 
 **Architecture**:
-1. Plugin `ralph-loop@claude-plugins-official` disabled (set to false in settings.json)
+1. Plugin `ralph-loop@claude-plugins-official` entry REMOVED from enabledPlugins (not just disabled — prevents GitHub #28554 spontaneous re-enable)
 2. Stop hook added to settings.json, pointing to repo's `scripts/stop-hook.sh`
 3. Local commands in `~/.claude/commands/`: ralph-loop.md, cancel-ralph.md, ralph-loop-help.md
 4. All commands use absolute path to repo (`$REPO/`)
@@ -140,3 +140,67 @@ explicitly requested a separate command, and the TESTINGOFF toggle provides clea
 **Why separate sandbox**: Tests outside the project prevent test code from polluting the project tree.
 /tmp is ephemeral (appropriate — tests are regenerated each session). Sandbox is session-scoped
 to avoid collisions in multi-terminal setups.
+
+## Documentation Architecture (session 13)
+
+### Decision: HTML diagrams with Chrome headless screenshots
+
+**Context**: The project has accumulated 53 decisions across 14 sessions. Visual documentation
+makes the system architecture accessible for LinkedIn posts, README, and onboarding.
+
+**Architecture**: 4 HTML files in `docs/` with matching `screenshot-*.png` files:
+1. `diagram.html` — Main system architecture (the "hero" diagram)
+2. `ralphtemplatetest-diagram.html` — /ralphtemplatetest-specific flow
+3. `before-after-diagram.html` — Original plugin vs patched hybrid
+4. `system-improvements-diagram.html` — All fixes, stats, test coverage
+
+**Style**: Dark cyberpunk theme (background: #0a0e17), gradient text, color-coded role cards.
+Consistent across all 4 files.
+
+**Screenshots**: `google-chrome --headless --disable-gpu --screenshot=output.png --window-size=W,H file://input.html`
+Custom heights per page (1200-2600px) to capture full content without cutoff.
+
+**Tradeoff**: Screenshot PNGs are binary assets that bloat git history. Could gitignore them
+and regenerate on demand, but having them committed makes sharing (LinkedIn, README) immediate.
+
+### Decision: Double-fire risk — RESOLVED (session 14)
+
+**Context**: GitHub #28554 reports disabled plugins may re-enable on subsequent sessions.
+If ralph-loop plugin re-enables while settings.json Stop hook exists, both hooks fire.
+
+**Resolution**: Removed the plugin entry entirely from `enabledPlugins` in settings.json.
+No entry = nothing to spontaneously re-enable. The `installed_plugins.json` entry and
+`marketplaces/` directory still exist (managed by Claude Code), but without an `enabledPlugins`
+entry, the plugin cannot activate.
+
+**Previous risk**: State file processed twice per session end, corrupting iteration count.
+**Current risk**: None. Entry removal is strictly more protective than `false`.
+
+## Recovery Architecture (session 14)
+
+### Decision: Idempotent restore script separate from migration
+
+**Context**: The hybrid setup can break in multiple ways — `/plugin update` re-adding entries,
+GitHub #28554, manual edits, tools overwriting settings.json. The migration script is designed
+for one-time use. The rollback script reverts entirely. Neither handles "fix what's broken,
+keep what's working."
+
+**Architecture**: `RESTORE/restore-hybrid.sh` — a standalone script that:
+1. Checks 6 categories of potential breakage
+2. Fixes only what's wrong (skips what's correct)
+3. Reports all findings (WARN/FIX/OK)
+4. Supports `--dry-run` (health check only) and `--quiet` (minimal output)
+
+**Script triad**: migrate (one-time setup) / rollback (full revert) / restore (fix broken state).
+
+**Why not a SessionStart hook**: A health check on every session start adds latency for a rare
+scenario. The restore script is on-demand — run it when something seems wrong, or periodically
+after `/plugin update`.
+
+**Why not merge with migrate-to-hybrid.sh**: The migration script creates backups, handles
+first-time setup (mkdir, initial file creation), and removes the cache-watchdog. These are
+one-time operations. The restore script assumes migration already happened and only fixes drift.
+
+**Tradeoff**: Local command restore overwrites without backup. Acceptable because local commands
+are generated from repo sources, not hand-edited. User custom commands live in project-level
+`.claude/commands/`, not `~/.claude/commands/`.

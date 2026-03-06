@@ -136,7 +136,7 @@ EOF
 # 2. Use the .txt content inside the ralph-loop quotes
 /ralph-loop "$(cat ~/prompts/auth-system-build.txt)" \
   --max-iterations 30 --completion-promise "ALL TESTS PASSING"
-# Note: A unique passphrase (WORD NNNN WORD NNNN WORD NNNN) is auto-prepended
+# Note: A unique passphrase (RALPH- prefix + hex hash) is auto-prepended
 # to your promise. The actual completion signal becomes: PASSPHRASE::ALL TESTS PASSING
 ```
 
@@ -236,33 +236,23 @@ cp templates/CLAUDE.md.template ~/.claude/CLAUDE.md
 # Edit to add your projects, paths, and preferences
 ```
 
-4. **Install Ralph Loop plugin** (for the self-referential stop hook):
+4. **Install Ralph Loop stop hook** (for the self-referential loop engine):
 
-Install from the official Claude Code plugin marketplace:
+Run the migration script to set up the hybrid architecture (local commands + settings.json Stop hook):
 ```bash
-/plugin install ralph-loop@claude-plugins-official
+bash scripts/migrate-to-hybrid.sh
 ```
 
-**IMPORTANT: Apply patches after installation.** The marketplace version uses `<promise>` XML tags and `PPID` for session ID, which have known issues. This repo contains patched versions with passphrase detection, hook JSON session ID, and other fixes. Sync them with:
-```bash
-bash scripts/cache-sync.sh
-```
+This does three things:
+- Adds a Stop hook to `~/.claude/settings.json` pointing to `scripts/stop-hook.sh`
+- Copies local commands to `~/.claude/commands/` with absolute paths
+- Removes any marketplace plugin entry from `enabledPlugins` (prevents double-fire)
 
-This syncs patched files to all three plugin directories:
-- `~/.claude/plugins/marketplaces/...` (PRIMARY — what Claude Code actually loads)
-- `~/.claude/plugins/cache/...` (cache copy)
-- `~/.claude/plugins/local/...` (reference copy)
+> **Critical**: Claude Code caches hook script **content** at session start. After any edit to scripts/ or commands/, you **must** start a new Claude Code session for changes to take effect.
 
-> **Critical**: Claude Code caches hook script **content** at session start. After syncing, you **must** start a new Claude Code session for changes to take effect. Mid-session syncs do NOT affect running hooks.
+**Recovery**: If the setup breaks, run `bash RESTORE/restore-hybrid.sh` to check and fix all 6 configuration categories. Use `--dry-run` for a health check without changes.
 
-> **After `/plugin update`**: Re-run `bash scripts/cache-sync.sh` immediately. Plugin updates do `git pull` on the marketplace repo, overwriting all patches.
-
-**Cache watchdog**: Optionally install `cache-watchdog.sh` as a SessionStart hook to automatically detect when plugin updates overwrite your customizations. Add it to `~/.claude/settings.json` under hooks.
-
-**Orphaned cache cleanup**: If you reinstall or update the plugin, Claude Code may leave orphaned caches under `~/.claude/plugins/cache/`. Check for directories with `.orphaned_at` files and delete them:
-```bash
-find ~/.claude/plugins/cache -name ".orphaned_at" -exec dirname {} \; | xargs rm -rf
-```
+**Rollback**: To revert to the plugin approach: `bash scripts/rollback-to-plugin.sh`
 
 5. **Verify installation**:
 ```bash
@@ -283,9 +273,10 @@ claude
 ralphlooptemplates/
 ├── README.md                          # This file
 ├── CLAUDE.md                          # Project-specific Claude Code instructions
-├── PLUGIN-SYNC-GUIDE.txt              # How to keep patched plugin working
+├── PLUGIN-SYNC-GUIDE.txt              # How to keep patched plugin working (legacy)
 ├── commands/                          # Slash commands (copy to ~/.claude/commands/)
-│   ├── ralphtemplate.md               # Generate orchestrator prompts
+│   ├── ralphtemplate.md               # Generate 4-role orchestrator prompts
+│   ├── ralphtemplatetest.md           # Generate 5-role prompts (adds Tester)
 │   ├── boris-challenge.md             # Challenge requirements before coding
 │   ├── ralph-loop.md                  # Self-iterating development loop
 │   ├── ralph-loop-safe.md             # Safe loop with git checks
@@ -298,9 +289,11 @@ ralphlooptemplates/
 ├── scripts/                           # Ralph Loop engine
 │   ├── setup-ralph-loop.sh            # Creates loop state file
 │   ├── stop-hook.sh                   # Intercepts exit, feeds prompt back
-│   ├── hooks.json                     # Hook configuration
-│   ├── cache-sync.sh                  # Syncs repo files to plugin cache
-│   ├── cache-watchdog.sh              # SessionStart hook: detects cache mismatches
+│   ├── migrate-to-hybrid.sh           # Migrate plugin to hybrid architecture
+│   ├── rollback-to-plugin.sh          # Revert to plugin approach
+│   ├── hooks.json                     # Hook configuration (legacy)
+│   ├── cache-sync.sh                  # Syncs repo files to plugin cache (legacy)
+│   ├── cache-watchdog.sh              # SessionStart hook: detects cache mismatches (legacy)
 │   ├── learnings-preamble.md          # Per-iteration retrospective prompt template
 │   ├── test-passphrase-detection.sh   # Tests: passphrase format + false positives (18 tests)
 │   ├── test-multi-terminal.sh         # Tests: ls -t heuristic behavior (4 tests)
@@ -308,7 +301,16 @@ ralphlooptemplates/
 │   ├── test-cache-watchdog.sh         # Tests: actual watchdog script invocation (7 tests)
 │   ├── test-consolidation.sh          # Tests: consolidation exit path (10 tests)
 │   ├── test-lifecycle.sh              # Tests: full loop lifecycle + glob patterns (18 tests)
-│   └── test-hook-input.sh            # Tests: malformed/empty/valid hook JSON (12 tests)
+│   ├── test-hook-input.sh            # Tests: malformed/empty/valid hook JSON (12 tests)
+│   └── test-migration.sh             # Tests: hybrid migration + rollback (13 tests)
+├── RESTORE/                           # Recovery tools
+│   ├── restore-hybrid.sh             # Idempotent health check + fix
+│   └── README.md                      # Symptom-to-cause table
+├── docs/                              # Architecture diagrams (HTML)
+│   ├── diagram.html                   # v2 system architecture
+│   ├── ralphtemplatetest-diagram.html # 5-role system with Tester
+│   ├── before-after-diagram.html      # Original vs patched comparison
+│   └── system-improvements-diagram.html # Stats and fix history
 ├── workflow-rules/                    # Development workflow rules
 │   └── development-workflow-rules.txt # 5 rules for rigorous development
 ├── examples/                          # Usage examples
@@ -327,7 +329,7 @@ ralphlooptemplates/
 
 ## Example Usage
 
-> **Note on completion promises:** A unique passphrase (`WORD NNNN WORD NNNN WORD NNNN`) is auto-generated
+> **Note on completion promises:** A unique passphrase (`RALPH-` prefix + 48 hex chars from `/dev/urandom`) is auto-generated
 > for every ralph-loop session. If you provide `--completion-promise "DONE"`, the actual completion signal
 > becomes `PASSPHRASE::DONE`. The passphrase prevents false positives from common words in code output.
 
@@ -384,13 +386,23 @@ The `prompts/revenue-first-prompts.txt` file contains 23 production-ready prompt
 
 ## Changelog
 
-### v2 — Stop Hook Hardening & Test Suite
+### v3 — Hybrid Architecture + Hex Passphrase (2026-03-06)
 
-**44 decisions across 10 development sessions**, each using the Ralph Loop itself to iteratively build, test, and verify.
+**56 decisions across 15 development sessions**, each using the Ralph Loop itself to iteratively build, test, and verify.
+
+**Hybrid migration** — Replaced marketplace plugin with local commands + `settings.json` Stop hook. Eliminates the `/plugin update` overwrite problem permanently. The plugin entry is removed entirely from `enabledPlugins` (not just disabled). See `scripts/migrate-to-hybrid.sh`.
+
+**Hex passphrase** — Replaced `WORD NNNN WORD NNNN WORD NNNN` format with `/dev/urandom` hex hash (`RALPH-` prefix + 48 hex chars). LLMs have consistent token bias that caused the same words (MARBLE, CONDOR, LATTICE) to appear repeatedly. OS randomness eliminates this entirely.
+
+**Prompt reliability** — Added CRITICAL always-generate guard to `/ralphtemplate` and `/ralphtemplatetest`. Replaced ambiguous `---` template delimiters with `=== TEMPLATE START/END ===` markers. Prompts now always generate regardless of argument content.
+
+**Recovery tooling** — `RESTORE/restore-hybrid.sh` provides idempotent health check and fix for all 6 hybrid configuration categories. Supports `--dry-run` and `--quiet` modes.
+
+### v2 — Stop Hook Hardening & Test Suite
 
 #### What Changed
 
-**Passphrase system** — Replaced simple word-based completion promises with auto-generated `WORD NNNN WORD NNNN WORD NNNN` passphrases (~8 trillion combinations). Eliminates false-positive promise detection when common words like "DONE" appear in code output. User-provided promises are prefixed with the passphrase automatically.
+**Passphrase system** — Replaced simple word-based completion promises with auto-generated hex hash passphrases (`RALPH-` prefix + 48 hex chars from `/dev/urandom`). Eliminates false-positive promise detection when common words like "DONE" appear in code output. User-provided promises are prefixed with the passphrase automatically. Previous `WORD NNNN` format deprecated in v3 due to LLM token bias causing repeated word selections.
 
 **Session-scoped state files** — State files now include a session identifier in the filename to prevent cross-terminal contamination. On first iteration, the stop hook renames the file using the hook-provided session ID for O(1) direct lookup on subsequent iterations. The rename is protected by `flock` to handle concurrent terminal scenarios safely.
 
@@ -415,7 +427,7 @@ The original plugin uses `<promise>` XML tags for completion detection via Perl 
 
 #### Testing
 
-82 tests across 7 test suites, all passing:
+95 tests across 8 test suites, all passing:
 
 | Suite | Tests | Coverage |
 |-------|-------|----------|
@@ -426,21 +438,21 @@ The original plugin uses `<promise>` XML tags for completion detection via Perl 
 | `test-consolidation.sh` | 10 | Consolidation prompt emission, learnings cleanup, second-pass exit |
 | `test-lifecycle.sh` | 18 | Full loop lifecycle: setup → rename → iterate → promise → consolidate → cancel |
 | `test-hook-input.sh` | 12 | Empty/malformed/valid/binary/large hook JSON, jq resilience |
+| `test-migration.sh` | 13 | Hybrid migration, rollback, idempotency, absolute paths |
 
 Run all tests: `for f in scripts/test-*.sh; do bash "$f"; done`
 
-#### Plugin Cache Behavior
+#### Hook Caching Behavior
 
-Claude Code caches plugin files at session start. This has important implications:
+Claude Code caches hook script **content** at session start. This means:
 
-- **Syncing changes mid-session does not affect running hooks.** The hook that executes is the version loaded when the session started, not the current file on disk.
-- **To test hook changes**: sync files with `cache-sync.sh`, then start a **new** Claude Code session.
-- **Plugin updates create a new cache directory** and mark the old one with an `.orphaned_at` file. The `cache-sync.sh` script discovers the active directory automatically.
-- **The cache watchdog** (`cache-watchdog.sh`) compares repo files against the cache on every session start and warns if mismatches are detected.
+- **Editing scripts mid-session has no effect.** The hook that executes is the version loaded when the session started.
+- **After any edit to scripts/ or commands/**: start a **new** Claude Code session.
+- The hybrid architecture (settings.json Stop hook) reads from the repo directly — no cache-sync needed.
 
 #### Known Differences from Original Plugin
 
-The patched stop hook differs from the marketplace version in several ways. See `CLAUDE.md` for a detailed comparison table. The most significant difference is promise detection format: the original uses `<promise>` XML tags, while this version uses plain-text `grep -Fx` matching.
+The patched stop hook differs from the marketplace version in several ways. See `CLAUDE.md` for a detailed comparison table. The most significant differences: promise detection uses plain-text `grep -Fx` (not XML tags), session ID uses hook JSON (not PPID), and passphrases use `/dev/urandom` hex hashes (not LLM-picked words).
 
 ## Credits
 

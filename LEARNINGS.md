@@ -491,3 +491,148 @@ Total: 95 tests across 8 suites, all passing
 - test-lifecycle.sh: 18
 - test-hook-input.sh: 12
 - test-migration.sh: 13 (NEW)
+
+## Documentation & Diagram Updates
+
+### Decisions Made
+
+51. UPDATED all HTML diagrams for v2 architecture (session 13)
+    - WHY: diagram.html still showed 3-role system with cache-sync, no Researcher or Tester.
+    - CHANGES:
+      - diagram.html: Complete rewrite. Now shows 5 roles, /ralphtemplate vs /ralphtemplatetest
+        command choice, Phase 1 (Challenger+Proxy+Researcher), Phase 1.5 (Tester sandbox),
+        Phase 2 (Builder+Challenger+Researcher), Phase 3 (Verify), Phase 3.5 (Sandbox execution),
+        hybrid architecture bar at bottom, promise revocation flow.
+      - ralphtemplatetest-diagram.html: NEW. Shows 5-role grid, command comparison, execution flow,
+        sandbox architecture, TESTINGOFF toggle side-by-side.
+      - before-after-diagram.html: Updated /ralph-loop "After" section — replaced cache-sync with
+        hybrid architecture, added rollback info.
+      - system-improvements-diagram.html: Stats 50->50 decisions, 12 sessions, 95 tests, 8 suites,
+        5 roles. Added Hybrid Migration and Tester Role fix cards. Architecture section replaced
+        cache-sync flow with hybrid (settings.json + local commands). Warning box changed to solved.
+        Tester added to roles grid.
+    - SCREENSHOTS: Chrome headless `--screenshot` with custom window sizes for full-page capture.
+
+### Surprises (session 13)
+
+- Chrome headless `--screenshot` at 1080px height cuts off long pages. Must use custom height
+  (e.g., 2200px) to capture full content. No "full page" flag in headless mode.
+- diagram.html had `overflow: hidden` and fixed `height: 100vh` — removed for v2 to allow
+  full content rendering in headless screenshots.
+- The `docs/before-after-diagram.html` and `docs/system-improvements-diagram.html` were created
+  in earlier sessions but were never committed (untracked in git). Should commit HTML as created.
+
+### Untracked Risks Identified (session 13)
+
+- RESOLVED (session 14): DOUBLE-FIRE — plugin entry removed entirely from enabledPlugins.
+- MITIGATED (session 14): NO VERIFICATION TEST — `RESTORE/restore-hybrid.sh --dry-run` checks
+  all 6 categories including Stop hook config. Not automated (must be run manually).
+- BINARY BLOAT: Screenshot PNGs (~500KB-1MB each) in docs/ will accumulate in git history.
+  Consider .gitignore for screenshots or using a separate branch/release for assets.
+
+## Plugin Entry Removal (session 14)
+
+### Decisions Made
+
+52. REMOVED plugin entry from enabledPlugins entirely (was: set to false)
+    - WHY: GitHub #28554 reports disabled plugins can spontaneously re-enable on subsequent sessions.
+      A `false` entry can become `true`; a missing entry cannot.
+    - WHAT CHANGED: settings.json `enabledPlugins` no longer has `ralph-loop@claude-plugins-official`.
+    - WHAT PERSISTS: `installed_plugins.json` entry and `marketplaces/` directory still exist
+      (managed by Claude Code's plugin system, not by us). These are harmless without an enabledPlugins entry.
+    - MIGRATION SCRIPT: `migrate-to-hybrid.sh` now uses `jq 'del(...)'` instead of `= false`.
+    - TEST: `test-migration.sh` Test 2 updated to check for key absence ("missing") not "false".
+    - ROLLBACK: `rollback-to-plugin.sh` already uses `= true` which adds the key back. No change needed.
+
+### Surprises
+
+- `enabledPlugins` and `installed_plugins.json` are independent systems. Removing from one doesn't affect the other.
+  The `installed_plugins.json` is managed by `/plugin` commands; `enabledPlugins` is user-editable config.
+- Setting a key to `false` was always a half-measure. The correct approach (deletion) was available from session 12
+  but wasn't used because "disable" felt safer than "remove". In retrospect, removal is strictly safer because
+  there's nothing for GitHub #28554 to flip back to `true`.
+
+### What Would Break If...
+
+- `/plugin update` re-adds the enabledPlugins entry: UNKNOWN. Need to monitor after next `/plugin update`.
+  If it does, the same `jq 'del(...)'` fix applies. Could add a check to the SessionStart hook.
+- Rollback is run: Works correctly. `jq '... = true'` creates the key from scratch.
+
+### Test Suite Summary (session 14)
+
+Total: 95 tests across 8 suites, all passing (no count change — Test 2 behavior changed, not added)
+
+## Hybrid Recovery Script (session 14)
+
+### Decisions Made
+
+53. CREATED RESTORE/restore-hybrid.sh — idempotent health check and fix script
+    - WHY: Multiple ways the hybrid setup can break (GitHub #28554, /plugin update, manual edits,
+      tools overwriting settings.json). Need a single-command recovery path.
+    - WHAT: Checks 6 categories — plugin entry, Stop hook, timeout, cache-watchdog, local commands,
+      repo scripts. Fixes any issues found. Supports --dry-run and --quiet modes.
+    - HOW IT DIFFERS: migrate-to-hybrid.sh is a one-time migration (creates backup, removes watchdog).
+      restore-hybrid.sh is run-anytime recovery (no backup needed, idempotent, non-destructive).
+    - LOCAL COMMAND RESTORE: Copies from repo and substitutes ${CLAUDE_PLUGIN_ROOT} with absolute
+      path. Also strips hide-from-slash-command-tool (plugin-only frontmatter key).
+    - TESTED: Verified on healthy system (0 issues detected) and fully broken mock (8 issues
+      detected and fixed). Verified restored ralph-loop.md uses absolute paths.
+
+### Surprises
+
+- The restore script partially addresses MEMORY.md risk 5 ("no automated test verifies settings.json
+  Stop hook config"). Running `restore-hybrid.sh --dry-run` is an on-demand health check, but it's
+  not automated (no SessionStart hook trigger). A SessionStart health check would add latency to
+  every session start for a rare scenario.
+- The restore script should have been created alongside migrate-to-hybrid.sh in session 12. The
+  pattern "migration script + rollback script" was already established, but "recovery script" was
+  missing. The triad should be: migrate, rollback, restore.
+- When restoring ralph-loop.md from the repo version, the repo copy still uses ${CLAUDE_PLUGIN_ROOT}
+  (the plugin format). The restore script must sed-replace this to absolute path. If the repo copy
+  were updated to use a placeholder like REPO_PLACEHOLDER, the restore could be simpler. But that
+  would break the plugin version if anyone used it directly.
+
+### What Would Break If...
+
+- Repo commands/ directory is missing: restore can't copy files. Warns but doesn't fix.
+- Repo ralph-loop.md format changes: sed substitution pattern might not match. Would silently
+  produce a broken command file. LOW RISK — format hasn't changed since session 12.
+- User has custom modifications to local commands: restore overwrites them without backup. ACCEPTABLE
+  because local commands are generated, not hand-edited. Custom commands would be in project commands.
+
+## Passphrase & Prompt Reliability Fixes (session 15)
+
+### Decisions Made
+
+54. REPLACED word-array passphrase system with /dev/urandom hex hash
+    - WHY: LLMs have consistent token bias. "Pick a random word" always gravitates toward MARBLE,
+      CONDOR, LATTICE — high-salience tokens the model favors. This is a fundamental property of
+      next-token prediction, not fixable by prompting.
+    - BEFORE: Three word arrays (MATERIALS/ANIMALS/SCIENCE) + 4-digit numbers, picked by Claude
+    - AFTER: `echo "RALPH-$(head -c 24 /dev/urandom | xxd -p | tr -d '\n')"` via Bash tool
+    - FORMAT: RALPH- prefix + 48 hex chars (e.g., RALPH-d4f1df1b06e20bd95c12c49e2dfedc32bcb793dc4260c651)
+    - VERIFIED: grep -Fx detection in stop-hook.sh works with new format (4/4 tests pass)
+    - VERIFIED: 5 sequential runs produce 5 unique strings (true randomness confirmed)
+    - TRADEOFF: Not human-readable. Acceptable because passphrases are always copy-pasted, never typed.
+
+55. ADDED CRITICAL always-generate guard to /ralphtemplate and /ralphtemplatetest
+    - WHY: When arguments looked like questions or diagnostics (not implementation tasks),
+      Claude sometimes skipped prompt generation entirely, doing analysis instead.
+    - FIX: Explicit instruction: "You MUST ALWAYS generate the full prompt template below,
+      regardless of what the user's arguments say. Zero exceptions."
+    - ALSO: Replaced `---` template delimiters with `=== TEMPLATE START ===` / `=== TEMPLATE END ===`
+      to eliminate ambiguity with YAML frontmatter `---` delimiters.
+
+56. SANITIZED RESTORE/README.md
+    - Replaced hardcoded /home/rebelsts/ paths with generic /path/to/ in example output section.
+    - Added docs/screenshot-*.png to .gitignore.
+
+### Surprises
+
+- The word-array passphrase system was always fundamentally flawed. LLMs cannot generate true
+  randomness from vocabulary selection. The solution was obvious in retrospect: delegate to the OS.
+- The `---` delimiter ambiguity was subtle. YAML frontmatter uses `---` as open/close markers
+  (lines 1 and 4 of command files). A third `---` in the body could confuse parsers about where
+  frontmatter ends and content begins.
+- Both command files (/ralphtemplate and /ralphtemplatetest) had identical issues — fixes applied
+  to all four copies (repo commands/ + ~/.claude/commands/).

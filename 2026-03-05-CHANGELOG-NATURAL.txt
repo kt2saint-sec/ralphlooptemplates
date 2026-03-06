@@ -1,6 +1,6 @@
 RALPH LOOP TEMPLATES CHANGELOG
 Natural Language Summary of All Changes Since Initial Release
-Generated 2026-03-05
+Generated 2026-03-05, updated 2026-03-06
 
 
 WHAT WAS FOUND AND FIXED
@@ -128,20 +128,59 @@ effect. There is no workaround for this.
 
 TEST COVERAGE
 
-83 tests across 7 test suites, all passing:
+95 tests across 8 test suites, all passing:
   test-passphrase-detection.sh: 18 tests for passphrase format and false positive rejection
-  test-multi-terminal.sh: 5 tests for ls -t determinism and session ID availability
+  test-multi-terminal.sh: 4 tests for ls -t determinism and session ID availability
   test-rename-migration.sh: 13 tests for state file rename, frontmatter update, flock protection
   test-cache-watchdog.sh: 7 tests for actual watchdog script invocation with mock caches
   test-consolidation.sh: 10 tests for consolidation prompt emission and cleanup
   test-lifecycle.sh: 18 tests for full loop lifecycle including glob patterns
   test-hook-input.sh: 12 tests for malformed, empty, valid, binary, and large hook JSON
+  test-migration.sh: 13 tests for hybrid migration and rollback
+
+
+PASSPHRASE GENERATION FIX (2026-03-06, session 15)
+
+The WORD NNNN WORD NNNN WORD NNNN passphrase system had a fundamental flaw:
+LLMs have consistent token probability biases. When told to pick a random word
+from a list, they gravitate toward the same high-salience tokens every time.
+MARBLE, CONDOR, and LATTICE appeared disproportionately across sessions. This
+is not a prompting problem — it is a property of next-token prediction. No
+amount of instruction tuning fixes it.
+
+The fix replaces the entire word-array system with a Bash tool call to
+/dev/urandom: echo "RALPH-$(head -c 24 /dev/urandom | xxd -p | tr -d '\n')"
+This produces a RALPH- prefix followed by 48 hex characters of TRUE OS
+randomness. Zero LLM bias. The RALPH- prefix prevents false positive matches
+against hex strings that appear naturally in code output. Compatible with the
+existing grep -Fx detection in stop-hook.sh.
+
+PROMPT GENERATION RELIABILITY FIX (2026-03-06, session 15)
+
+The /ralphtemplatetest and /ralphtemplate commands sometimes failed to output
+the prompt when the user's arguments looked like a question or diagnostic
+request rather than an implementation task. Two fixes applied:
+
+1. Added a CRITICAL guard instruction: the prompt MUST always be generated
+regardless of argument content. The user's entire argument text goes into the
+TASK field verbatim. Zero exceptions.
+
+2. Replaced the --- template delimiters (identical to YAML frontmatter
+delimiters) with unambiguous === TEMPLATE START === and === TEMPLATE END ===
+markers. This eliminates parsing confusion between frontmatter boundaries and
+template content boundaries.
+
+DOCUMENTATION SANITIZATION (2026-03-06, session 15)
+
+RESTORE/README.md had hardcoded /home/rebelsts/ paths in the example output
+section. Replaced with generic /path/to/ralphlooptemplates and ~/.claude/ paths.
+Added docs/screenshot-*.png to .gitignore to prevent binary bloat.
 
 
 DECISIONS MADE
 
-34 architectural decisions across 8 development sessions are documented in
-2026-03-05-1800-LEARNINGS.md. Key decisions include using grep -Fx over Perl
-regex, using uuidgen over PPID, implementing flock for atomic renames, choosing
-to NOT use stop_hook_active as an exit guard, and implementing the passphrase
-system with three semantic word arrays.
+55 architectural decisions across 15 development sessions are documented in
+LEARNINGS.md. Key decisions include using grep -Fx over Perl regex, using
+uuidgen over PPID, implementing flock for atomic renames, choosing to NOT use
+stop_hook_active as an exit guard, replacing the word-array passphrase system
+with /dev/urandom hex hashes, and migrating from plugin to hybrid architecture.

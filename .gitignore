@@ -11,6 +11,9 @@
 challenge-workflow-starthere.txt
 github-ci-workers.txt
 
+# Screenshots (bloat git history)
+docs/screenshot-*.png
+
 # OS files
 .DS_Store
 Thumbs.db

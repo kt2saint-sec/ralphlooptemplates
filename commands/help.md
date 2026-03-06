@@ -82,7 +82,7 @@ Cancel an active Ralph loop (removes the loop state file).
 
 ### Completion Passphrases
 
-A unique passphrase (WORD NNNN WORD NNNN WORD NNNN format) is auto-generated for every session. If you provide `--completion-promise "DONE"`, the actual completion signal becomes `PASSPHRASE::DONE`. Output the passphrase on its own line when genuinely complete.
+A unique passphrase (RALPH- prefix + 48 hex chars from /dev/urandom) is auto-generated for every session. If you provide `--completion-promise "DONE"`, the actual completion signal becomes `PASSPHRASE::DONE`. Output the passphrase on its own line when genuinely complete.
 
 The passphrase system prevents false positives from common words appearing in code output. Without `--max-iterations` or `--completion-promise`, Ralph runs infinitely.
 

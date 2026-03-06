@@ -135,21 +135,11 @@ if [[ -z "$PROMPT" ]]; then
 fi
 
 # --- Passphrase generation for completion promise ---
-# Generates a unique WORD NNNN WORD NNNN WORD NNNN pattern that cannot false-positive.
-# Three arrays from different semantic domains ensure no natural code output matches.
+# Generates RALPH- prefix + 48 hex chars from /dev/urandom (TRUE OS randomness).
+# RALPH- prefix prevents false matches against hex strings in code output.
+# Previous WORD NNNN format deprecated: LLMs have token bias causing repeated words.
 generate_passphrase() {
-  local MATERIALS=(GRANITE BRONZE CERAMIC MARBLE COBALT VELVET COPPER OBSIDIAN IVORY SILVER TITANIUM QUARTZ BAMBOO LIMESTONE GRAPHITE SANDSTONE PORCELAIN MAHOGANY PLATINUM ENAMEL)
-  local ANIMALS=(OSPREY FALCON PELICAN MANTIS CONDOR IGUANA OTTER BISON COBRA GECKO HERON JACKAL LEMUR MARTEN NEWT PANTHER QUAIL RAVEN STORK TOUCAN)
-  local SCIENCE=(COSINE AXIOM PRISM VECTOR HELIX QUORUM TENSOR VERTEX MATRIX CIPHER RADIUS BINARY SCALAR THEOREM LATTICE DIPOLE FRACTAL PHOTON ORBITAL TANGENT)
-
-  local W1="${MATERIALS[$((RANDOM % ${#MATERIALS[@]}))]}"
-  local N1=$(printf "%04d" $((RANDOM % 10000)))
-  local W2="${ANIMALS[$((RANDOM % ${#ANIMALS[@]}))]}"
-  local N2=$(printf "%04d" $((RANDOM % 10000)))
-  local W3="${SCIENCE[$((RANDOM % ${#SCIENCE[@]}))]}"
-  local N3=$(printf "%04d" $((RANDOM % 10000)))
-
-  echo "${W1} ${N1} ${W2} ${N2} ${W3} ${N3}"
+  echo "RALPH-$(head -c 24 /dev/urandom | xxd -p | tr -d '\n')"
 }
 
 # Generate passphrase and build completion promise
