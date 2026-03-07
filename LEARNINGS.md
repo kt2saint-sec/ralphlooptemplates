@@ -610,7 +610,7 @@ Total: 95 tests across 8 suites, all passing (no count change — Test 2 behavio
       next-token prediction, not fixable by prompting.
     - BEFORE: Three word arrays (MATERIALS/ANIMALS/SCIENCE) + 4-digit numbers, picked by Claude
     - AFTER: `echo "RALPH-$(head -c 24 /dev/urandom | xxd -p | tr -d '\n')"` via Bash tool
-    - FORMAT: RALPH- prefix + 48 hex chars (e.g., RALPH-d4f1df1b06e20bd95c12c49e2dfedc32bcb793dc4260c651)
+    - FORMAT: RALPH- prefix + 48 hex chars (e.g., RALPH-000102030405060708090a0b0c0d0e0f1011121314151617)
     - VERIFIED: grep -Fx detection in stop-hook.sh works with new format (4/4 tests pass)
     - VERIFIED: 5 sequential runs produce 5 unique strings (true randomness confirmed)
     - TRADEOFF: Not human-readable. Acceptable because passphrases are always copy-pasted, never typed.
@@ -624,7 +624,7 @@ Total: 95 tests across 8 suites, all passing (no count change — Test 2 behavio
       to eliminate ambiguity with YAML frontmatter `---` delimiters.
 
 56. SANITIZED RESTORE/README.md
-    - Replaced hardcoded /home/rebelsts/ paths with generic /path/to/ in example output section.
+    - Replaced hardcoded user home paths with generic /path/to/ in example output section.
     - Added docs/screenshot-*.png to .gitignore.
 
 ### Surprises
@@ -636,3 +636,88 @@ Total: 95 tests across 8 suites, all passing (no count change — Test 2 behavio
   frontmatter ends and content begins.
 - Both command files (/ralphtemplate and /ralphtemplatetest) had identical issues — fixes applied
   to all four copies (repo commands/ + ~/.claude/commands/).
+
+## I/O Pressure Optimization (session 16)
+
+### Decisions Made
+
+57. REJECTED volatile journald — used persistent with aggressive caps instead
+    - WHY: Original research suggested `Storage=volatile` (RAM-only). Deep investigation revealed this
+      destroys crash logs on reboot/kernel panic. The user JUST HAD a crash — volatile would have
+      erased the diagnostic evidence. AMD ROCm driver crashes and OOM events need post-crash logs.
+    - FIX: `Storage=persistent` with `SystemMaxUse=2G`, `MaxRetentionSec=2weeks`, `Compress=yes`.
+      Caps writes while preserving crash forensics.
+    - TRADEOFF: 2GB on disk vs 0 (volatile). Acceptable — the 360GB default was the real problem.
+    - STATUS: APPLIED — journald override at `/etc/systemd/journald.conf.d/volatile.conf`, vacuumed to 801.7MB.
+
+58. USED fstab-only for tmpfs /tmp — NO live mount
+    - WHY: Process investigation found Xorg X11 socket (`/tmp/.X11-unix/X1`), Chrome singleton socket,
+      Claude Code task files (`/tmp/claude-1000/`), Claude MCP bridge socket, and QEMU console FIFOs
+      all active in /tmp. A live `mount -t tmpfs` would orphan these, potentially freezing the GUI.
+    - FIX: Add fstab entry only (`tmpfs /tmp tmpfs defaults,noatime,nosuid,nodev,size=16G 0 0`).
+      Takes effect on next reboot with clean socket initialization.
+    - WHY NOT noexec: Claude Code subagents may compile/execute test binaries in /tmp.
+    - WHY 16GB: Peak /tmp usage 2.8GB, 16GB = 5.7x headroom. 50% default (64GB) wastes RAM budget.
+    - STATUS: FSTAB ENTRY ADDED — requires reboot to activate. Backup at `/etc/fstab.pre-io-optimization.bak`.
+
+59. REFACTORED reduce-io-pressure.sh for per-step execution
+    - WHY: Original script applied all 3 optimizations via `--apply` (all-at-once). This prevented
+      independent verification of each step and forced risky operations together.
+    - FIX: Added `--apply-journald`, `--apply-workspace`, `--apply-tmpfs` flags. Each can be run
+      and verified independently. `--apply` remains as convenience (runs all three sequentially).
+    - ALSO: Removed `set -e` from script — incompatible with `systemctl is-active` which returns
+      exit code 3 for inactive units (not a failure, just "inactive"). Used `set -uo pipefail` instead.
+    - ALSO: Rewrote `apply_tmpfs()` to be fstab-only (removed all live mount code).
+    - ALSO: Updated diagnostic recommendations to show "REBOOT to activate" when fstab entry exists
+      but /tmp is still ext4.
+    - STATUS: APPLIED — all three steps executed and verified independently.
+
+60. CONFIRMED Ralph Loop commands need ZERO changes for I/O optimizations
+    - WHY: `/ralphtemplatetest` sandbox uses `/tmp/ralph-test-sandbox-SESSION_ID/` (lines 102, 124, 127).
+      When /tmp becomes tmpfs, the same path writes to RAM instead of disk. Faster AND eliminates
+      root drive pressure. Sandbox is ephemeral (trap cleanup), so RAM-backed storage is ideal.
+    - VERIFIED: `diff` between repo `commands/ralphtemplatetest.md` and installed
+      `~/.claude/commands/ralphtemplatetest.md` — identical. `stop-hook.sh` /tmp references are
+      only in commented-out debug lines (27-28).
+    - STATUS: NO CHANGES NEEDED — confirmed across all command and script files.
+
+### Surprises
+
+- `set -euo pipefail` is a common bash "best practice" that BREAKS scripts doing `systemctl is-active`.
+  The command returns exit code 3 for inactive units, which `set -e` treats as failure. This caused
+  the diagnostic mode to crash when checking `tmp.mount` (which is intentionally inactive).
+- The volatile vs persistent journald distinction is a critical safety decision that changes
+  depending on whether you're running a server (volatile OK — redundant monitoring) or a dev
+  workstation (persistent required — crash logs are the only diagnostic source).
+- PrivateTmp (used by 11 services) has ZERO conflicts with tmpfs /tmp. It uses Linux mount
+  namespaces layered ON TOP of whatever /tmp is. Historical issue #5189 was RHEL7-specific.
+- systemd-tmpfiles-setup.service is also compatible — runs after local-fs.target mount,
+  `D /tmp 1777` directive is idempotent on existing tmpfs. fstab entries take precedence over tmp.mount.
+
+### What Would Break If...
+
+- Reboot with tmpfs /tmp: Should work — all services start fresh with clean /tmp. Verify Xorg, Chrome,
+  Docker, Claude Code, QEMU all initialize correctly.
+- 16GB tmpfs fills up: Processes writing to /tmp get ENOSPC. Unlikely — peak usage was 2.8GB.
+  Monitor with `df /tmp` during heavy workloads.
+- Docker + tmpfs memory pressure: Docker uses ~20GB, tmpfs caps at 16GB, system needs ~8GB.
+  Total potential: 44GB of available RAM. Comfortable margin on systems with 64GB+.
+- journald 2-week retention too short: Lose old logs. Acceptable for a dev workstation.
+  If debugging a 3-week-old issue, check system backup location.
+
+### Research Findings (session 16)
+
+Deep research via MCP agents (8 web searches, 9 page fetches, 13 authoritative sources):
+1. tmpfs sizing: kernel.org docs, Ubuntu blog (96.2% of 502 servers use <1GB /tmp), Launchpad #2069834
+2. journald volatile rejection: freedesktop.org journald.conf, man7.org, systemd GitHub #14588
+   (hybrid volatile+persistent feature request — declined by maintainers)
+3. PrivateTmp compatibility: systemd.io official docs, ArchWiki, Fedora wiki
+4. systemd-tmpfiles: Ubuntu Noble manpage — runs After local-fs.target, idempotent on tmpfs
+
+### Files Changed (session 16)
+
+- `scripts/reduce-io-pressure.sh` — major refactor (per-step flags,
+  fstab-only tmpfs, removed set -e, updated diagnostics)
+- `/etc/systemd/journald.conf.d/volatile.conf` — created (journald caps)
+- `/etc/fstab` — added tmpfs entry (backup at .pre-io-optimization.bak)
+- Fast NVMe workspace directory — created (sandbox/, tmp/, builds/, README.txt)

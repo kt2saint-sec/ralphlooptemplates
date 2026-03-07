@@ -75,9 +75,9 @@ Source: https://code.claude.com/docs/en/hooks
 - User-provided promises get prefixed: `PASSPHRASE::USER_PROMISE`
 - Detection uses `grep -Fx` — RALPH- prefix prevents false matches against hex in code output
 
-## Known Risks (as of 2026-03-06, updated session 15)
+## Known Risks (as of 2026-03-07, updated session 16)
 
-56 decisions across 15 sessions (see LEARNINGS.md for full history). Active items only:
+60 decisions across 16 sessions (see LEARNINGS.md for full history). Active items only:
 
 - RESOLVED (session 12): `/plugin update` overwrite problem — hybrid migration eliminates this entirely. Hook reads from repo, not marketplace.
 - KNOWN-BEHAVIOR: Hook changes require a NEW session. Claude Code caches hook SCRIPT CONTENT at session start. Editing hook files on disk has NO effect on the running session's hooks.
@@ -89,6 +89,8 @@ Source: https://code.claude.com/docs/en/hooks
 - NOTED: Bash RANDOM 15-bit modulo bias (0.006%) — not security-relevant.
 - NOTED: stop_hook_active intentionally NOT used as exit guard.
 - NOTED: Live hook JSON fields (session_id, last_assistant_message) still not verified via actual hook fire event. All code has fallbacks.
+- NEW (session 16): Post-reboot verification needed — tmpfs /tmp fstab entry added but not yet active. Must confirm Xorg, Chrome, Docker, Claude Code, QEMU work after reboot.
+- NOTED (session 16): `set -e` incompatible with `systemctl is-active` — returns exit code 3 for inactive units. Use `set -uo pipefail` (no `-e`) in scripts that check service status.
 
 ## Stop Hook State File Rename Behavior
 
@@ -167,6 +169,7 @@ Screenshots: `google-chrome --headless --disable-gpu --screenshot="output.png" -
 - `scripts/test-migration.sh` — 13 tests for migration and rollback (uses mock HOME)
 - `RESTORE/restore-hybrid.sh` — Idempotent health check + fix for hybrid state (run anytime)
 - `RESTORE/README.md` — Symptom-to-cause table and usage guide
+- `scripts/reduce-io-pressure.sh` — I/O pressure optimization (journald caps, nvme-fast workspace, tmpfs fstab). Supports `--diagnose`, `--apply`, `--apply-journald`, `--apply-workspace`, `--apply-tmpfs`, `--rollback`, `--help`.
 
 RESTORE/restore-hybrid.sh checks and fixes 6 categories:
 1. Plugin entry in enabledPlugins (removes if present)

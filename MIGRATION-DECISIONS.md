@@ -38,7 +38,7 @@ during a session have zero effect on running hooks.
 **Context**: Original plugin uses `<promise>TEXT</promise>` Perl regex detection.
 Claude Code's rendering pipeline strips XML tags from output before transcript.
 
-**Architecture**: Passphrase system (`WORD NNNN WORD NNNN WORD NNNN`) with `grep -Fx` exact line match.
+**Architecture**: Passphrase system (`RALPH-` prefix + 48 hex chars from `/dev/urandom`) with `grep -Fx` exact line match.
 No XML tags at any point in the pipeline.
 
 **Tradeoff**: Incompatible with original plugin's detection format. If reverted to original plugin
@@ -204,3 +204,65 @@ one-time operations. The restore script assumes migration already happened and o
 **Tradeoff**: Local command restore overwrites without backup. Acceptable because local commands
 are generated from repo sources, not hand-edited. User custom commands live in project-level
 `.claude/commands/`, not `~/.claude/commands/`.
+
+## I/O Pressure Optimization Architecture (session 16)
+
+### Decision: Persistent journald with caps over volatile
+
+**Context**: System crash during heavy Ralph Loop workload. Root cause: journald, /tmp, and
+Ralph Loop sandbox all writing to the root NVMe drive simultaneously. Initial research recommended
+`Storage=volatile` (RAM-only) to eliminate journal disk writes entirely.
+
+**Discovery**: Volatile journald destroys crash logs on reboot/kernel panic. The user had JUST
+experienced a crash — volatile would have erased the diagnostic evidence needed to identify root
+cause. AMD ROCm driver crashes and OOM events require persistent logs for post-mortem debugging.
+systemd maintainers declined a hybrid volatile+persistent feature (GitHub #14588).
+
+**Architecture**: `Storage=persistent` with aggressive caps:
+- `SystemMaxUse=2G` (down from default 10% of root filesystem — can be hundreds of GB on large drives)
+- `MaxRetentionSec=2weeks` (auto-prune old entries)
+- `MaxFileSec=1week` (rotate weekly)
+- `Compress=yes` (reduce write volume)
+- Drop-in override at `/etc/systemd/journald.conf.d/volatile.conf`
+
+**Tradeoff**: 2GB on disk vs 0 (volatile). But crash forensics preserved. The real problem was
+the 360GB default cap, not the existence of persistent storage.
+
+### Decision: Fstab-only tmpfs — no live mount
+
+**Context**: Moving /tmp to 16GB tmpfs eliminates root drive I/O from temporary files. But a live
+`mount -t tmpfs tmpfs /tmp` would orphan active sockets (Xorg, Chrome, Claude Code, QEMU).
+
+**Architecture**: Add fstab entry only. Takes effect on next reboot when all services initialize
+with clean /tmp. No live mount code in the script at all (removed, not just skipped).
+- Entry: `tmpfs /tmp tmpfs defaults,noatime,nosuid,nodev,size=16G 0 0`
+- No `noexec`: Claude Code subagents may compile/execute test binaries in /tmp
+- 16GB cap: 5.7x headroom over peak 2.8GB usage. 50% default wastes RAM budget on high-memory systems.
+
+**Tradeoff**: Requires reboot to activate. But zero disruption to running session.
+
+### Decision: Per-step script execution over all-at-once
+
+**Context**: Original `reduce-io-pressure.sh --apply` ran all 3 optimizations sequentially with
+no way to verify each independently or skip one that failed.
+
+**Architecture**: Individual flags (`--apply-journald`, `--apply-workspace`, `--apply-tmpfs`).
+`--apply` remains as convenience that calls all three. Each step is idempotent (checks if already
+applied before acting). Diagnostic mode updated to show context-aware recommendations (e.g.,
+"REBOOT to activate" when fstab entry exists but /tmp is still ext4).
+
+**Tradeoff**: More CLI flags to document. But matches the "apply one, verify, then next" workflow
+that prevented the crash investigation from being disrupted.
+
+### Decision: Zero Ralph Loop command changes
+
+**Context**: Ralph Loop sandbox writes to `/tmp/ralph-test-sandbox-SESSION_ID/`. When /tmp becomes
+tmpfs, this path stays identical but writes to RAM instead of disk.
+
+**Architecture**: No code changes. The sandbox benefits automatically because tmpfs is transparent
+to applications. The path `/tmp/...` resolves to whatever filesystem is mounted at /tmp. Ephemeral
+sandbox + RAM-backed storage is the ideal combination (fast writes, auto-cleanup).
+
+**Alternative considered**: Adding `RALPH_SANDBOX_BASE` env var to redirect sandbox to
+a fast secondary NVMe workspace directory. Rejected because tmpfs /tmp already solves the I/O
+problem, and adding a configurable base path increases complexity for zero benefit.
