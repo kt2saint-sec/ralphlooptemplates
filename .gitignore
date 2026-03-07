@@ -14,6 +14,13 @@ github-ci-workers.txt
 # Screenshots (bloat git history)
 docs/screenshot-*.png
 
+# Twitter drafts (personal, not for repo)
+docs/twitter-*-overview.*
+docs/twitter-*-roles.*
+docs/twitter-*-hook-fix.*
+docs/twitter-*-io-knowledge.*
+docs/*twitter-post*
+
 # OS files
 .DS_Store
 Thumbs.db

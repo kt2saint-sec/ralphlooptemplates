@@ -99,7 +99,7 @@ THE TESTER ACTIVATES in Phase 1.5 (after Challenger review, before Builder imple
 THE TESTER MUST:
 1. Research the task requirements by reading the Challenger's objections and the Proxy's decisions
 2. Understand the expected behavior, inputs, outputs, and edge cases
-3. Create a test sandbox directory at /tmp/ralph-test-sandbox-UNIQUE_ID/ (using session ID or timestamp)
+3. Create a test sandbox directory at /mnt/nvme-fast/claude-workspace/sandbox/ralph-test-sandbox-UNIQUE_ID/ (using session ID or timestamp)
 4. Write test scripts that verify the EXPECTED BEHAVIOR, not the implementation details
 5. Tests should be bash scripts (for shell projects) or the appropriate test framework for the project language
 6. Include positive tests (expected success), negative tests (expected failure), and edge case tests
@@ -121,10 +121,10 @@ Missing coverage: (what cannot be tested at this stage)
 How to run: (exact command to execute the test suite)
 
 SANDBOX RULES:
-1. Create sandbox at /tmp/ralph-test-sandbox-SESSION_ID/ where SESSION_ID is unique per run
+1. Create sandbox at /mnt/nvme-fast/claude-workspace/sandbox/ralph-test-sandbox-SESSION_ID/ where SESSION_ID is unique per run
 2. Tests can reference project files by absolute path (read-only)
 3. Tests should copy any needed fixtures into the sandbox
-4. Sandbox cleanup: add a trap to clean up on exit (trap "rm -rf /tmp/ralph-test-sandbox-SESSION_ID" EXIT)
+4. Sandbox cleanup: add a trap to clean up on exit (trap "rm -rf /mnt/nvme-fast/claude-workspace/sandbox/ralph-test-sandbox-SESSION_ID" EXIT)
 5. The Builder runs the test suite AFTER implementation to verify correctness
 6. If tests fail after implementation, the Builder iterates (fix code, not tests)
 

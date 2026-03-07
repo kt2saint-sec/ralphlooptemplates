@@ -135,7 +135,7 @@ The Researcher activates when Builder or Proxy drops below 75% certainty. It del
 web search, and MCP servers (context7, brave, fetch, github), reports structured findings with sources
 and confidence, then the delegating role incorporates findings and proceeds.
 
-The Tester (Role 5, `/ralphtemplatetest` only) creates tests in `/tmp/ralph-test-sandbox-SESSION_ID/`
+The Tester (Role 5, `/ralphtemplatetest` only) creates tests in `/mnt/nvme-fast/claude-workspace/sandbox/ralph-test-sandbox-SESSION_ID/`
 BEFORE the Builder writes implementation code. Tests verify expected BEHAVIOR, not implementation details.
 Post-completion: full test suite re-run; sandbox cleaned up. Toggle off with TESTINGOFF in arguments.
 

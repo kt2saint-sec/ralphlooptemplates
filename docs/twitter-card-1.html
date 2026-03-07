@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ralph Loop v3 Architecture — Session-Aware Self-Healing Dev Loop</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0e17;
+    color: #e0e6ed;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    padding: 28px 36px;
+    width: 1200px;
+  }
+
+  h1 {
+    text-align: center; font-size: 28px; font-weight: 700; margin-bottom: 2px;
+    background: linear-gradient(135deg, #00d4ff, #7b61ff, #ff6b9d);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .subtitle {
+    text-align: center; color: #6b7a8d; font-size: 11px;
+    margin-bottom: 24px; letter-spacing: 2px; text-transform: uppercase;
+  }
+  .version-tag {
+    text-align: center; margin-bottom: 18px;
+  }
+  .version-tag span {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    padding: 3px 12px; border-radius: 20px;
+    background: linear-gradient(135deg, #7b61ff22, #ff6b9d22);
+    border: 1px solid #7b61ff44;
+    color: #b8a9ff; letter-spacing: 1px;
+  }
+
+  .section-header {
+    display: flex; align-items: center; gap: 12px;
+    margin: 28px 0 14px 0; padding-bottom: 6px;
+    border-bottom: 1px solid #2a3545;
+  }
+  .section-header .tag {
+    font-size: 9px; font-weight: 700; padding: 2px 8px;
+    border-radius: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .tag.fix { background: rgba(68, 255, 136, 0.15); color: #66ffaa; }
+  .tag.new { background: rgba(255, 107, 157, 0.15); color: #ff6b9d; }
+  .tag.perf { background: rgba(255, 204, 68, 0.15); color: #ffcc44; }
+  .tag.core { background: rgba(0, 212, 255, 0.15); color: #00d4ff; }
+  .section-header .title {
+    font-size: 15px; font-weight: 600; color: #c8d0dc;
+  }
+  .section-header .desc {
+    font-size: 11px; color: #6b7a8d; margin-left: auto; font-style: italic;
+  }
+
+  /* ═══ Stats Bar ═══ */
+  .stats-bar {
+    display: flex; gap: 10px; margin: 14px 0;
+  }
+  .stat-item {
+    flex: 1; background: linear-gradient(135deg, #111827, #151d2b);
+    border: 1px solid #2a3545; border-radius: 8px;
+    padding: 10px 14px; text-align: center;
+  }
+  .stat-item .stat-num {
+    font-size: 22px; font-weight: 700;
+    background: linear-gradient(135deg, #00d4ff, #7b61ff);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .stat-item .stat-label {
+    font-size: 9px; color: #6b7a8d; text-transform: uppercase;
+    letter-spacing: 1px; margin-top: 2px;
+  }
+
+  /* ═══ Command Flow ═══ */
+  .cmd-flow {
+    display: flex; align-items: stretch; gap: 0;
+    margin: 14px 0;
+  }
+  .cmd-step {
+    flex: 1; background: linear-gradient(135deg, #111827, #151d2b);
+    border: 1px solid #2a3545; padding: 14px 16px;
+  }
+  .cmd-step:first-child { border-radius: 12px 0 0 12px; }
+  .cmd-step:last-child { border-radius: 0 12px 12px 0; }
+  .cmd-step.user { border-color: #00d4ff44; }
+  .cmd-step.template { border-color: #ff6b9d44; }
+  .cmd-step.setup { border-color: #7b61ff44; }
+  .cmd-step.hook { border-color: #ffcc4444; }
+  .cmd-step-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; margin-bottom: 6px;
+  }
+  .cmd-step.user .cmd-step-title { color: #00d4ff; }
+  .cmd-step.template .cmd-step-title { color: #ff6b9d; }
+  .cmd-step.setup .cmd-step-title { color: #b8a9ff; }
+  .cmd-step.hook .cmd-step-title { color: #ffcc44; }
+  .cmd-step-text {
+    font-size: 10px; color: #8899aa; line-height: 1.5;
+  }
+  .cmd-step-text code {
+    font-family: 'Courier New', monospace; font-size: 9px;
+    background: rgba(123, 97, 255, 0.1); padding: 0 4px;
+    border-radius: 3px; color: #b8a9ff;
+  }
+  .cmd-step-text .file { color: #66aaff; }
+  .cmd-arrow-h {
+    display: flex; align-items: center; justify-content: center;
+    width: 36px; background: #0d1117;
+    border-top: 1px solid #2a3545; border-bottom: 1px solid #2a3545;
+    color: #7b61ff; font-size: 16px; font-weight: 700;
+  }
+
+  /* ═══ Hex Passphrase ═══ */
+  .hex-block {
+    display: flex; align-items: center; gap: 14px;
+    background: linear-gradient(135deg, #0a2a1a, #112a18);
+    border: 1px solid #44ff8844; border-radius: 10px;
+    padding: 12px 20px; margin: 14px 0;
+  }
+  .hex-icon { font-size: 22px; flex-shrink: 0; }
+  .hex-content { flex: 1; }
+  .hex-label { font-size: 12px; font-weight: 700; color: #66ffaa; margin-bottom: 4px; }
+  .hex-code {
+    font-family: 'Courier New', monospace; font-size: 12px; color: #44ff88;
+    background: #0d1117; padding: 6px 12px; border-radius: 6px;
+    display: inline-block; border: 1px solid #2a3545;
+  }
+  .hex-explain {
+    font-size: 10px; color: #88bbaa; margin-top: 6px; line-height: 1.5;
+  }
+  .hex-compare {
+    display: flex; gap: 10px; margin-top: 6px;
+  }
+  .hex-vs {
+    font-size: 10px; padding: 4px 10px; border-radius: 6px;
+    font-family: 'Courier New', monospace;
+  }
+  .hex-vs.old { background: #1a0a0a; border: 1px solid #ff444444; color: #ff8888; }
+  .hex-vs.new { background: #0a1a0a; border: 1px solid #44ff8844; color: #44ff88; }
+
+  /* ═══ Role Cards ═══ */
+  .roles-grid {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    gap: 10px; margin: 14px 0;
+  }
+  .role-card {
+    border-radius: 10px; padding: 12px 13px; min-height: 100px;
+  }
+  .role-card.challenger {
+    background: linear-gradient(135deg, #1a0a0a, #2a1515);
+    border: 1px solid #ff4444;
+  }
+  .role-card.tester {
+    background: linear-gradient(135deg, #1a0a1a, #2a1528);
+    border: 1px solid #ff6b9d;
+    box-shadow: 0 0 10px rgba(255, 107, 157, 0.08);
+  }
+  .role-card.builder {
+    background: linear-gradient(135deg, #0a0a1a, #15152a);
+    border: 1px solid #4488ff;
+  }
+  .role-card.proxy {
+    background: linear-gradient(135deg, #0a1a0a, #152a15);
+    border: 1px solid #44ff88;
+  }
+  .role-card.researcher {
+    background: linear-gradient(135deg, #1a1a0a, #2a2515);
+    border: 1px solid #ffcc44;
+  }
+  .role-name {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; margin-bottom: 6px;
+  }
+  .challenger .role-name { color: #ff6666; }
+  .tester .role-name { color: #ff6b9d; }
+  .builder .role-name { color: #66aaff; }
+  .proxy .role-name { color: #66ffaa; }
+  .researcher .role-name { color: #ffcc44; }
+  .role-card ul { list-style: none; padding: 0; }
+  .role-card li {
+    font-size: 10px; color: #99aabb; padding: 2px 0 2px 12px;
+    position: relative; line-height: 1.35;
+  }
+  .role-card li::before {
+    content: ''; position: absolute; left: 0; top: 6px;
+    width: 4px; height: 4px; border-radius: 50%;
+  }
+  .challenger li::before { background: #ff4444; }
+  .tester li::before { background: #ff6b9d; }
+  .builder li::before { background: #4488ff; }
+  .proxy li::before { background: #44ff88; }
+  .researcher li::before { background: #ffcc44; }
+  .role-card li.highlight { color: #ffcc44; }
+  .new-badge {
+    display: inline-block; font-size: 7px; font-weight: 700;
+    padding: 1px 5px; border-radius: 3px; vertical-align: middle;
+    background: rgba(255, 107, 157, 0.2); color: #ff6b9d;
+    border: 1px solid rgba(255, 107, 157, 0.3); margin-left: 3px;
+  }
+
+  /* ═══ Phase Flow ═══ */
+  .flow-center { display: flex; justify-content: center; }
+  .arrow-down {
+    width: 2px; height: 16px;
+    background: linear-gradient(to bottom, #3a4555, #7b61ff);
+    position: relative; margin: 0 auto;
+  }
+  .arrow-down::after {
+    content: ''; position: absolute; bottom: -5px; left: -4px;
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+    border-top: 6px solid #7b61ff;
+  }
+  .arrow-down.pink { background: linear-gradient(to bottom, #ff6b9d, #ff6b9d88); }
+  .arrow-down.pink::after { border-top-color: #ff6b9d88; }
+  .arrow-down.green { background: linear-gradient(to bottom, #44ff88, #22aa55); }
+  .arrow-down.green::after { border-top-color: #22aa55; }
+  .arrow-down.gold { background: linear-gradient(to bottom, #ffcc44, #aa8822); }
+  .arrow-down.gold::after { border-top-color: #aa8822; }
+
+  .phase-box {
+    background: linear-gradient(135deg, #111827, #151d2b);
+    border: 1px solid #2a3545; border-radius: 12px;
+    padding: 14px 18px; margin: 6px 0;
+  }
+  .phase-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+  }
+  .phase-num {
+    background: linear-gradient(135deg, #7b61ff, #5b3fff);
+    color: white; font-weight: 700; font-size: 11px;
+    padding: 3px 10px; border-radius: 20px; white-space: nowrap;
+  }
+  .phase-num.pink { background: linear-gradient(135deg, #ff6b9d, #cc4477); }
+  .phase-num.green { background: linear-gradient(135deg, #22aa55, #118844); }
+  .phase-num.gold { background: linear-gradient(135deg, #cc9922, #886611); }
+  .phase-title { font-size: 14px; font-weight: 600; color: #c8d0dc; }
+  .phase-desc { font-size: 10px; color: #6b7a8d; margin-left: auto; font-style: italic; }
+  .phase-text {
+    font-size: 10px; color: #8899aa; line-height: 1.6; margin-top: 4px;
+  }
+  .phase-text code {
+    font-family: 'Courier New', monospace; font-size: 9px;
+    background: rgba(123, 97, 255, 0.1); padding: 0 4px;
+    border-radius: 3px; color: #b8a9ff;
+  }
+  .roles-row { display: flex; gap: 10px; }
+
+  /* ═══ Stop Hook Engine ═══ */
+  .hook-engine {
+    display: flex; align-items: stretch; gap: 0; margin: 14px 0;
+  }
+  .hook-main {
+    flex: 1;
+    background: linear-gradient(135deg, #111827, #151d2b);
+    border: 1px solid #2a3545;
+    border-radius: 12px 0 0 12px;
+    padding: 16px 18px; border-right: none;
+  }
+  .hook-sidebar {
+    width: 260px;
+    background: linear-gradient(135deg, #1a1420, #201828);
+    border: 1px solid #ff6b9d;
+    border-radius: 0 12px 12px 0;
+    padding: 14px 16px;
+    box-shadow: 0 0 15px rgba(255, 107, 157, 0.08);
+  }
+  .hook-sidebar .sidebar-title {
+    color: #ff6b9d; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;
+  }
+  .hook-sidebar .step {
+    font-size: 9px; color: #aa8899; padding: 3px 0 3px 14px;
+    position: relative; line-height: 1.4;
+  }
+  .hook-sidebar .step::before {
+    content: ''; position: absolute; left: 0; top: 6px;
+    width: 5px; height: 5px; border-radius: 50%; background: #ff6b9d;
+  }
+  .hook-sidebar .step.green::before { background: #44ff88; }
+  .hook-sidebar .step.gold::before { background: #ffcc44; }
+  .hook-sidebar .step.cyan::before { background: #00d4ff; }
+  .hook-source-label {
+    font-size: 8px; color: #886677; margin-top: 8px;
+    padding-top: 6px; border-top: 1px solid #2a2030;
+    font-style: italic; line-height: 1.4;
+  }
+  .hook-source-label code {
+    font-family: 'Courier New', monospace; font-size: 8px;
+    color: #b8a9ff;
+  }
+
+  .iteration-format {
+    background: #0d1117; border: 1px solid #2a3545;
+    border-radius: 6px; padding: 8px 14px;
+    font-family: 'Courier New', monospace; font-size: 9px;
+    color: #8899aa; margin-top: 10px; line-height: 1.6;
+  }
+  .iter-label { color: #ffcc44; font-weight: 700; }
+  .iter-pass { color: #44ff88; }
+  .iter-key { color: #00d4ff; }
+
+  /* ═══ Hook Compare ═══ */
+  .hook-compare {
+    display: grid; grid-template-columns: 1fr 50px 1fr; gap: 0;
+    margin: 14px 0;
+  }
+  .hook-col {
+    background: linear-gradient(135deg, #111827, #151d2b);
+    border: 1px solid #2a3545; padding: 16px 18px;
+  }
+  .hook-col:first-child { border-radius: 12px 0 0 12px; }
+  .hook-col:last-child { border-radius: 0 12px 12px 0; }
+  .hook-col.old { border-color: #ff444444; }
+  .hook-col.new { border-color: #44ff8844; }
+  .hook-label {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.5px; margin-bottom: 8px; text-align: center;
+  }
+  .hook-col.old .hook-label { color: #ff6666; }
+  .hook-col.new .hook-label { color: #66ffaa; }
+  .hook-arrow-mid {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 700;
+    background: linear-gradient(135deg, #ff444411, #44ff8811);
+    color: #ffcc44;
+  }
+  .hook-list { list-style: none; padding: 0; }
+  .hook-list li {
+    font-size: 10px; color: #99aabb; padding: 3px 0 3px 14px;
+    position: relative; line-height: 1.5;
+  }
+  .hook-list li::before {
+    content: ''; position: absolute; left: 0; top: 7px;
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+  .hook-col.old .hook-list li::before { background: #ff4444; }
+  .hook-col.new .hook-list li::before { background: #44ff88; }
+  .hook-list .bad { color: #ff8888; }
+  .hook-list .good { color: #88ffaa; }
+  .hook-list code {
+    font-family: 'Courier New', monospace; font-size: 9px;
+    background: rgba(123, 97, 255, 0.1); padding: 0 4px;
+    border-radius: 3px; color: #b8a9ff;
+  }
+
+  /* ═══ I/O Pressure ═══ */
+  .io-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+    margin: 14px 0;
+  }
+  .io-card {
+    background: linear-gradient(135deg, #111827, #151d2b);
+    border: 1px solid #2a3545; border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .io-card.bad { border-color: #ff444444; }
+  .io-card.fix { border-color: #44ff8844; }
+  .io-card.result { border-color: #00d4ff44; }
+  .io-title { font-size: 11px; font-weight: 700; margin-bottom: 6px; }
+  .io-card.bad .io-title { color: #ff6666; }
+  .io-card.fix .io-title { color: #66ffaa; }
+  .io-card.result .io-title { color: #00d4ff; }
+  .io-text {
+    font-size: 10px; color: #8899aa; line-height: 1.5;
+  }
+  .io-text code {
+    font-family: 'Courier New', monospace; font-size: 9px;
+    background: rgba(123, 97, 255, 0.1); padding: 0 4px;
+    border-radius: 3px; color: #b8a9ff;
+  }
+
+  /* ═══ Knowledge Cache ═══ */
+  .knowledge-flow {
+    display: flex; align-items: stretch; gap: 0;
+    margin: 14px 0;
+  }
+  .know-box {
+    flex: 1; background: linear-gradient(135deg, #111827, #151d2b);
+    border: 1px solid #2a3545; padding: 14px 16px;
+  }
+  .know-box:first-child { border-radius: 12px 0 0 12px; }
+  .know-box:last-child { border-radius: 0 12px 12px 0; }
+  .know-box.capture { border-color: #7b61ff44; }
+  .know-box.persist { border-color: #ffcc4444; }
+  .know-box.inject { border-color: #00d4ff44; }
+  .know-box.consolidate { border-color: #44ff8844; }
+  .know-title {
+    font-size: 12px; font-weight: 700; margin-bottom: 6px;
+  }
+  .know-box.capture .know-title { color: #b8a9ff; }
+  .know-box.persist .know-title { color: #ffcc44; }
+  .know-box.inject .know-title { color: #00d4ff; }
+  .know-box.consolidate .know-title { color: #66ffaa; }
+  .know-text {
+    font-size: 10px; color: #8899aa; line-height: 1.5;
+  }
+  .know-text code {
+    font-family: 'Courier New', monospace; font-size: 9px;
+    background: rgba(123, 97, 255, 0.1); padding: 0 4px;
+    border-radius: 3px; color: #b8a9ff;
+  }
+  .know-arrow {
+    display: flex; align-items: center; justify-content: center;
+    width: 36px; background: #0d1117;
+    border-top: 1px solid #2a3545; border-bottom: 1px solid #2a3545;
+    color: #7b61ff; font-size: 14px; font-weight: 700;
+  }
+
+  /* ═══ Completion ═══ */
+  .completion-box {
+    background: linear-gradient(135deg, #0a2a1a, #153520);
+    border: 2px solid #44ff88; border-radius: 10px;
+    padding: 12px 22px; text-align: center; margin: 14px 0;
+    box-shadow: 0 0 20px rgba(68, 255, 136, 0.1);
+  }
+  .completion-box .label {
+    font-size: 14px; font-weight: 600; color: #44ff88;
+    font-family: 'Courier New', monospace;
+  }
+  .completion-items {
+    display: flex; gap: 10px; justify-content: center; margin-top: 8px; flex-wrap: wrap;
+  }
+  .completion-item {
+    font-size: 9px; color: #88bbaa; padding: 3px 10px;
+    background: rgba(68, 255, 136, 0.08);
+    border-radius: 5px; border: 1px solid rgba(68, 255, 136, 0.15);
+  }
+
+  /* ═══ Revoke Box ═══ */
+  .revoke-box {
+    background: linear-gradient(135deg, #2a0a0a, #351515);
+    border: 1px dashed #ff4444; border-radius: 8px;
+    padding: 8px 16px; margin: 8px 0;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 10px; color: #ff8888;
+  }
+  .revoke-box .icon { font-size: 14px; flex-shrink: 0; }
+
+  /* ═══ Architecture Bar ═══ */
+  .arch-bar {
+    display: flex; gap: 10px; margin-top: 14px;
+  }
+  .arch-item {
+    flex: 1; background: linear-gradient(135deg, #111827, #151d2b);
+    border: 1px solid #2a3545; border-radius: 8px;
+    padding: 8px 12px; text-align: center;
+  }
+  .arch-item .ai-label {
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; margin-bottom: 3px;
+  }
+  .arch-item .ai-value {
+    font-size: 10px; color: #99aabb;
+    font-family: 'Courier New', monospace;
+  }
+  .arch-item.hook { border-color: #ff6b9d44; }
+  .arch-item.hook .ai-label { color: #ff6b9d; }
+  .arch-item.cmd { border-color: #7b61ff44; }
+  .arch-item.cmd .ai-label { color: #b8a9ff; }
+  .arch-item.detect { border-color: #44ff8844; }
+  .arch-item.detect .ai-label { color: #66ffaa; }
+  .arch-item.session { border-color: #00d4ff44; }
+  .arch-item.session .ai-label { color: #00d4ff; }
+  .arch-item.sandbox { border-color: #ffcc4444; }
+  .arch-item.sandbox .ai-label { color: #ffcc44; }
+  .arch-item.learnings { border-color: #b8a9ff44; }
+  .arch-item.learnings .ai-label { color: #b8a9ff; }
+</style>
+</head>
+<body>
+
+<h1>Ralph Loop v3 Architecture</h1>
+<p class="subtitle">Session-Aware Self-Healing Development Loop &middot; 16 Sessions of Iteration</p>
+<div class="version-tag"><span>v3.2 &mdash; 60 DECISIONS &middot; 8 TEST SUITES (95 PASSING) &middot; HYBRID HOOK ARCHITECTURE</span></div>
+
+<!-- ═══ STATS ═══ -->
+
+<div class="stats-bar">
+  <div class="stat-item">
+    <div class="stat-num">5</div>
+    <div class="stat-label">Roles</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">95</div>
+    <div class="stat-label">Tests</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">8</div>
+    <div class="stat-label">Test Suites</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">2<sup style="font-size:11px">192</sup></div>
+    <div class="stat-label">Passphrase Space</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">O(1)</div>
+    <div class="stat-label">Session Lookup</div>
+  </div>
+</div>
+
+<!-- ═══ COMMAND PIPELINE ═══ -->
+
+<div class="section-header">
+  <span class="tag core">CORE</span>
+  <span class="title">Command Pipeline</span>
+  <span class="desc">From user intent to self-referential loop</span>
+</div>
+
+<div class="cmd-flow">
+  <div class="cmd-step user">
+    <div class="cmd-step-title">1. User Invokes</div>
+    <div class="cmd-step-text">
+      <code>/ralphtemplatetest "task"</code><br>
+      Generates 5-role prompt with<br>
+      passphrase via Bash tool<br>
+      (or <code>/ralphtemplate</code> for 4 roles)
+    </div>
+  </div>
+  <div class="cmd-arrow-h">&#10132;</div>
+  <div class="cmd-step template">
+    <div class="cmd-step-title">2. Template Generates</div>
+    <div class="cmd-step-text">
+      Runs <code>head -c 24 /dev/urandom | xxd -p</code><br>
+      Outputs plain-text prompt (no markdown)<br>
+      RALPH- prefix + 48 hex chars<br>
+      User copies prompt + passphrase
+    </div>
+  </div>
+  <div class="cmd-arrow-h">&#10132;</div>
+  <div class="cmd-step setup">
+    <div class="cmd-step-title">3. Setup Activates</div>
+    <div class="cmd-step-text">
+      <code>/ralph-loop "prompt" --max-iterations N</code><br>
+      Runs <span class="file">setup-ralph-loop.sh</span><br>
+      Creates state: <code>.claude/ralph-loop.SESSION_ID.local.md</code><br>
+      YAML frontmatter + prompt body
+    </div>
+  </div>
+  <div class="cmd-arrow-h">&#10132;</div>
+  <div class="cmd-step hook">
+    <div class="cmd-step-title">4. Hook Intercepts</div>
+    <div class="cmd-step-text">
+      <code>settings.json</code> Stop hook fires<br>
+      Runs <span class="file">stop-hook.sh</span> on every exit<br>
+      Fast-exit if no state files (nullglob)<br>
+      Blocks exit + re-feeds prompt
+    </div>
+  </div>
+</div>
+
+<!-- ═══ HEX PASSPHRASE ═══ -->
+
+<div class="section-header">
+  <span class="tag fix">FIX</span>
+  <span class="title">/dev/urandom Hex Passphrase (Session 15)</span>
+  <span class="desc">Both setup-ralph-loop.sh and command templates use identical generation</span>
+</div>
+
+<div class="hex-block">
+  <div class="hex-icon">&#128274;</div>
+  <div class="hex-content">
+    <div class="hex-label">Generated via Bash tool in both setup-ralph-loop.sh:142 and ralphtemplatetest.md:20</div>
+    <div class="hex-code">echo "RALPH-$(head -c 24 /dev/urandom | xxd -p | tr -d '\n')"</div>
+    <div class="hex-explain">
+      48 hex chars from OS entropy pool. RALPH- prefix prevents false matches against hex in code output.<br>
+      Detected by <code>grep -Fx</code> exact line match in stop-hook.sh:261. User promise appended with :: separator.
+    </div>
+    <div class="hex-compare">
+      <div class="hex-vs old">v2: MARBLE 4821 CONDOR 0093 (LLM picks words = MARBLE/CONDOR/LATTICE repeated)</div>
+      <div class="hex-vs new">v3: RALPH-a3f8c91e2b7d04f6e5a12c8b... (OS random, zero token bias)</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 5-ROLE ARCHITECTURE ═══ -->
+
+<div class="section-header">
+  <span class="tag core">CORE</span>
+  <span class="title">5-Role Prompt Architecture</span>
+  <span class="desc">Generated by ~/.claude/commands/ralphtemplatetest.md (TESTINGOFF strips Role 5)</span>
+</div>
+
+<div class="roles-grid">
+  <div class="role-card challenger">
+    <div class="role-name">Role 1: Challenger</div>
+    <ul>
+      <li>Boris Antagonist Method</li>
+      <li>5+ ambiguities identified</li>
+      <li>2-3 approaches with tradeoffs</li>
+      <li>Routes questions to Proxy</li>
+      <li>Reviews after every milestone</li>
+      <li>Can force redesign</li>
+      <li>Checks naming + duplicates</li>
+    </ul>
+  </div>
+  <div class="role-card tester">
+    <div class="role-name">Role 5: Tester <span class="new-badge">v2</span></div>
+    <ul>
+      <li>Activates Phase 1.5 (after Challenger)</li>
+      <li>Creates tests BEFORE Builder</li>
+      <li>Tests verify BEHAVIOR only</li>
+      <li>Sandbox: <code>/mnt/nvme-fast/claude-workspace/sandbox/ralph-test-sandbox-ID/</code></li>
+      <li>Builder has NOT seen test code</li>
+      <li>Positive + negative + edge cases</li>
+      <li>trap cleanup on EXIT</li>
+    </ul>
+  </div>
+  <div class="role-card builder">
+    <div class="role-name">Role 2: Builder</div>
+    <ul>
+      <li>Implements iteratively</li>
+      <li>Max 10 iterations before escalate</li>
+      <li>Logs: status, root cause, fix, result</li>
+      <li class="highlight">&lt;75% certain: delegates to Researcher</li>
+      <li>Must NOT code before Tester</li>
+      <li>Fixes code, not tests on failure</li>
+    </ul>
+  </div>
+  <div class="role-card proxy">
+    <div class="role-name">Role 3: Proxy</div>
+    <ul>
+      <li>Human stand-in (never says "ask user")</li>
+      <li>Reads CLAUDE.md, LEARNINGS.md, patterns</li>
+      <li>Confidence % on each answer</li>
+      <li>&lt;70% flagged REVIEWABLE</li>
+      <li class="highlight">&lt;75% delegates to Researcher</li>
+      <li>Always decides, never defers</li>
+    </ul>
+  </div>
+  <div class="role-card researcher">
+    <div class="role-name">Role 4: Researcher</div>
+    <ul>
+      <li>Independent, unbiased fact-finder</li>
+      <li>Activates ONLY on delegation</li>
+      <li>Subagents + web + MCPs</li>
+      <li>context7, fetch, brave, github</li>
+      <li>Output: Question, Sources, Findings</li>
+      <li>Confidence %, Caveats</li>
+    </ul>
+  </div>
+</div>
+</body></html>
