@@ -135,7 +135,7 @@ The Researcher activates when Builder or Proxy drops below 75% certainty. It del
 web search, and MCP servers (context7, brave, fetch, github), reports structured findings with sources
 and confidence, then the delegating role incorporates findings and proceeds.
 
-The Tester (Role 5, `/ralphtemplatetest` only) creates tests in `/mnt/nvme-fast/claude-workspace/sandbox/ralph-test-sandbox-SESSION_ID/`
+The Tester (Role 5, `/ralphtemplatetest` only) creates tests in `/tmp/ralph-test-sandbox-SESSION_ID/`
 BEFORE the Builder writes implementation code. Tests verify expected BEHAVIOR, not implementation details.
 Post-completion: full test suite re-run; sandbox cleaned up. Toggle off with TESTINGOFF in arguments.
 
@@ -169,7 +169,7 @@ Screenshots: `google-chrome --headless --disable-gpu --screenshot="output.png" -
 - `scripts/test-migration.sh` — 13 tests for migration and rollback (uses mock HOME)
 - `RESTORE/restore-hybrid.sh` — Idempotent health check + fix for hybrid state (run anytime)
 - `RESTORE/README.md` — Symptom-to-cause table and usage guide
-- `scripts/reduce-io-pressure.sh` — I/O pressure optimization (journald caps, nvme-fast workspace, tmpfs fstab). Supports `--diagnose`, `--apply`, `--apply-journald`, `--apply-workspace`, `--apply-tmpfs`, `--rollback`, `--help`.
+- `scripts/reduce-io-pressure.sh` — I/O pressure optimization (journald caps, dedicated workspace, tmpfs fstab). Supports `--diagnose`, `--apply`, `--apply-journald`, `--apply-workspace`, `--apply-tmpfs`, `--rollback`, `--help`.
 
 RESTORE/restore-hybrid.sh checks and fixes 6 categories:
 1. Plugin entry in enabledPlugins (removes if present)
