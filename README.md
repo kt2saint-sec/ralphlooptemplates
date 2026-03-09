@@ -6,13 +6,13 @@ Ralph Loop turns Claude Code into a self-correcting build system: a stop hook in
 
 Built across 16 development sessions, each using the Ralph Loop itself to iteratively build, test, and verify. 60 decisions. 95 tests. 5 adversarial roles.
 
-![Overview — 5 roles, 95 tests, 16 sessions, 60 decisions](docs/twitter-1-overview.png)
+![Overview — 5 roles, 95 tests, 16 sessions, 60 decisions](docs/overview.png)
 
-![5 Adversarial Roles — Challenger, Tester, Builder, Proxy, Researcher](docs/twitter-2-roles.png)
+![5 Adversarial Roles — Challenger, Tester, Builder, Proxy, Researcher](docs/roles.png)
 
-![Stop Hook Fix — Plugin hooks.json silently drops output, settings.json doesn't](docs/twitter-3-hook-fix.png)
+![Stop Hook Fix — Plugin hooks.json silently drops output, settings.json doesn't](docs/hook-fix.png)
 
-![I/O Fix + Knowledge Cache — Sandbox off /tmp, learnings persist across iterations](docs/twitter-4-io-knowledge.png)
+![I/O Fix + Knowledge Cache — Sandbox off /tmp, learnings persist across iterations](docs/io-knowledge.png)
 
 ---
 
