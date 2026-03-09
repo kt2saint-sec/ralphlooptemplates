@@ -21,16 +21,20 @@ Built across 16 development sessions, each using the Ralph Loop itself to iterat
 ### The Loop
 
 ```
-You describe a task
+/ralphtemplatetest [Outputs Antagonistic challenge prompt of task w/ 5 specialized subagents]
     |
     v
-/ralph-loop "Build X" --max-iterations 20 --completion-promise "DONE"
+/ralph-loop "Build X" --max-iterations 20 --completion-promise "RALPH-1234567890098765432112345678900987654321123456789009876""
     |
     v
-Claude works on the task, modifies files
+CHALLENGER - Reviews all tasks & codebase, gives reasons why it may now work
     |
     v
-Claude tries to exit
+BUILDER (Presents plan to HITL PROXY) -> PROXY (Makes decisions on task)
+    |
+    v
+(If BUILER or PROXY is under 75% success estimate, passes to RESEARCHER, who then independently mitigates risk and sends it back to subagent) 
+Claude tries to exit if PROXY approves plan
     |
     v
 Stop hook intercepts:
@@ -44,8 +48,13 @@ Claude sees its previous work in files
 Iterates until complete or max iterations reached
 ```
 
-The "self-referential" part: Claude doesn't talk to itself. The same prompt is repeated, but Claude's work persists in files and git history. Each iteration builds on the last.
-
+The "self-referential" part: Claude doesn't talk to itself. The same prompt is repeated, but Claude's work persists in files and git history. Each iteration builds on the last with knowledge caching, improving context per loop.
+    |
+    v
+TESTER is independent. Creates tests in sandbox FIRST, so BUILDER cannot code to "pass the test"
+    |
+    v
+BUILDER develops code in sandbox until all tests pass. Must be able to also explain in natural language why it works.
 ### The Roles
 
 The `/ralphtemplate` and `/ralphtemplatetest` commands generate orchestrator prompts with adversarial roles that prevent the common failure modes of AI coding:
