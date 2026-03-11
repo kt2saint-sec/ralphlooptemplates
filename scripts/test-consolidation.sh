@@ -28,7 +28,7 @@ cat > "$STATE" <<EOF
 active: true
 iteration: 5
 max_iterations: 5
-completion_promise: "GRANITE 1234 FALCON 5678 COSINE 9012"
+completion_promise: "RALPH-66ff1a2b-a3f7b2c94e1d08f6a2b3c5d7e1f4a09b2c4d6e"
 learnings_enabled: true
 session_id: "${SID}"
 ---
@@ -40,7 +40,7 @@ echo "# Iteration learnings" > "$LEARNINGS"
 LEARNINGS_ENABLED="true"
 RALPH_STATE_FILE="$STATE"
 LEARNINGS_FILE="$LEARNINGS"
-COMPLETION_PROMISE="GRANITE 1234 FALCON 5678 COSINE 9012"
+COMPLETION_PROMISE="RALPH-66ff1a2b-a3f7b2c94e1d08f6a2b3c5d7e1f4a09b2c4d6e"
 
 # First pass: learnings enabled and file exists -> should add consolidating flag
 if [[ "$LEARNINGS_ENABLED" == "true" ]] && [[ -f "$LEARNINGS_FILE" ]]; then
@@ -171,7 +171,7 @@ fi
 # --- Test 5: Consolidation prompt includes passphrase ---
 echo ""
 echo "=== Test 5: Consolidation includes passphrase ==="
-COMPLETION_PROMISE="GRANITE 1234 FALCON 5678 COSINE 9012"
+COMPLETION_PROMISE="RALPH-66ff1a2b-a3f7b2c94e1d08f6a2b3c5d7e1f4a09b2c4d6e"
 LEARNINGS_FILE="$MOCK_CLAUDE/ralph-learnings.test.md"
 CONSOLIDATION_PROMPT="RALPH LOOP COMPLETE - consolidation steps at $LEARNINGS_FILE"
 

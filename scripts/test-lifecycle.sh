@@ -18,7 +18,7 @@ MOCK_CLAUDE="$TMPDIR/.claude"
 mkdir -p "$MOCK_CLAUDE"
 
 # Shared passphrase for all tests
-PASSPHRASE="GRANITE 1234 FALCON 5678 COSINE 9012"
+PASSPHRASE="RALPH-66ff1a2b-a3f7b2c94e1d08f6a2b3c5d7e1f4a09b2c4d6e"
 PROMISE="${PASSPHRASE}::ALL TESTS PASSING"
 
 # ============================================================

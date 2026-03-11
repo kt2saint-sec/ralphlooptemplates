@@ -19,8 +19,8 @@ eval "$(sed -n '/^generate_passphrase()/,/^}/p' "$(dirname "$0")/setup-ralph-loo
 
 for i in $(seq 1 5); do
   PHRASE=$(generate_passphrase)
-  # Validate format: WORD NNNN WORD NNNN WORD NNNN
-  if echo "$PHRASE" | grep -qE '^[A-Z]+ [0-9]{4} [A-Z]+ [0-9]{4} [A-Z]+ [0-9]{4}$'; then
+  # Validate format: RALPH- prefix + 8 epoch hex + 40 random hex (changed session 18, decision 66)
+  if echo "$PHRASE" | grep -qE '^RALPH-[0-9a-f]{8}-[0-9a-f]{40}$'; then
     pass "Passphrase $i: $PHRASE"
   else
     fail "Passphrase $i bad format: $PHRASE"

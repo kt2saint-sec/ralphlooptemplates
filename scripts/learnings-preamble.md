@@ -10,4 +10,3 @@ BEFORE continuing your task, perform a 30-second retrospective:
 4. Then continue with your task below.
 
 ---
-

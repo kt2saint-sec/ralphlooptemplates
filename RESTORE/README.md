@@ -6,13 +6,13 @@ One-command fix for when the Ralph Loop hybrid architecture breaks.
 
 Run `restore-hybrid.sh` if any of these happen:
 
-| Symptom | Cause |
-|---------|-------|
-| Ralph loop stops working between sessions | Plugin re-enabled (GitHub #28554) — double-fire corrupts state |
-| `/plugin update` and ralph loop breaks | Plugin entry re-added to `enabledPlugins` |
-| `/ralph-loop` command says "command not found" | Local commands deleted or overwritten |
-| Loop runs but stop hook never fires | Stop hook missing from `settings.json` |
-| Stop hook fires but does nothing | Stop hook pointing to wrong path |
+| Symptom                                        | Cause                                                          |
+| ---------------------------------------------- | -------------------------------------------------------------- |
+| Ralph loop stops working between sessions      | Plugin re-enabled (GitHub #28554) — double-fire corrupts state |
+| `/plugin update` and ralph loop breaks         | Plugin entry re-added to `enabledPlugins`                      |
+| `/ralph-loop` command says "command not found" | Local commands deleted or overwritten                          |
+| Loop runs but stop hook never fires            | Stop hook missing from `settings.json`                         |
+| Stop hook fires but does nothing               | Stop hook pointing to wrong path                               |
 
 ## Usage
 
@@ -45,11 +45,11 @@ bash RESTORE/restore-hybrid.sh --quiet
 
 ## How it differs from other scripts
 
-| Script | Purpose |
-|--------|---------|
-| `RESTORE/restore-hybrid.sh` | Fix broken hybrid state (run anytime) |
-| `scripts/migrate-to-hybrid.sh` | Initial migration from plugin to hybrid (run once) |
-| `scripts/rollback-to-plugin.sh` | Revert to plugin approach entirely |
+| Script                          | Purpose                                            |
+| ------------------------------- | -------------------------------------------------- |
+| `RESTORE/restore-hybrid.sh`     | Fix broken hybrid state (run anytime)              |
+| `scripts/migrate-to-hybrid.sh`  | Initial migration from plugin to hybrid (run once) |
+| `scripts/rollback-to-plugin.sh` | Revert to plugin approach entirely                 |
 
 ## Example output
 

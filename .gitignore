@@ -4,7 +4,7 @@
 .playwright-mcp/
 
 # Debug/test artifacts
-/tmp/ralph-hook-debug.json
+/mnt/nvme-fast/claude-workspace/tmp/ralph-hook-debug.json
 
 # Original unsanitized files
 .originals/
@@ -30,3 +30,12 @@ Thumbs.db
 
 # Lock files from flock
 *.lock
+
+# DOCUMENTOR output files (v2 templates)
+ralph-prompt-*.txt
+
+# Test preservation snapshots (v2 ralphtemplatetest)
+TESTS/
+
+# Backup/restore artifacts (user-specific config)
+BACKUP_RESTORE/

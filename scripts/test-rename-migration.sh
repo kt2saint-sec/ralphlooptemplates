@@ -29,7 +29,7 @@ cat > "$STATE_FILE" <<EOF
 active: true
 iteration: 1
 max_iterations: 10
-completion_promise: "GRANITE 1234 FALCON 5678 COSINE 9012"
+completion_promise: "RALPH-66ff1a2b-a3f7b2c94e1d08f6a2b3c5d7e1f4a09b2c4d6e"
 learnings_enabled: true
 session_id: "${SETUP_SID}"
 started_at: "2026-03-05T18:00:00Z"

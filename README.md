@@ -4,9 +4,9 @@
 
 Ralph Loop turns Claude Code into a self-correcting build system: a stop hook intercepts every session exit, feeds the same prompt back, and Claude sees its own previous work in files — iterating until the task is genuinely complete.
 
-Built across 16 development sessions, each using the Ralph Loop itself to iteratively build, test, and verify. 60 decisions. 95 tests. 5 adversarial roles.
+Built across 24 development sessions, each using the Ralph Loop itself to iteratively build, test, and verify. 91 decisions. 137 tests. 5 adversarial roles.
 
-![Overview — 5 roles, 95 tests, 16 sessions, 60 decisions](docs/overview.png)
+![Overview — 5 roles, 137 tests, 24 sessions, 91 decisions](docs/overview.png)
 
 ![5 Adversarial Roles — Challenger, Tester, Builder, Proxy, Researcher](docs/roles.png)
 
@@ -59,13 +59,13 @@ BUILDER develops code in sandbox until all tests pass. Must be able to also expl
 
 The `/ralphtemplate` and `/ralphtemplatetest` commands generate orchestrator prompts with adversarial roles that prevent the common failure modes of AI coding:
 
-| Role | Purpose | Activates |
-|------|---------|-----------|
-| **Challenger** (Boris Antagonist) | Raises 5+ ambiguities, proposes 2-3 approaches, reviews after every milestone. Can force redesign. | Before any code is written, after every major step |
-| **Builder** (Primary Implementer) | Writes code, runs tests, iterates. Logs status, root cause, fix, result per iteration. | Phase 2 (after Challenger/Proxy negotiate) |
-| **Proxy** (Human Stand-in) | Answers Challenger's questions by researching codebase and docs. Never says "ask the user." Flags low-confidence decisions as REVIEWABLE. | When Challenger has questions |
-| **Researcher** (Fact-Finder) | Independent knowledge agent. Subagents + web search + MCP servers. Structured reports with sources and confidence. | When Builder or Proxy is below 75% certainty |
-| **Tester** (Test-First Gate) | Creates tests BEFORE Builder writes code. Sandbox on dedicated NVMe. Builder can't see test code. Fail = passphrase revoked. | Phase 1.5 (`/ralphtemplatetest` only) |
+| Role                              | Purpose                                                                                                                                   | Activates                                          |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| **Challenger** (Boris Antagonist) | Raises 5+ ambiguities, proposes 2-3 approaches, reviews after every milestone. Can force redesign.                                        | Before any code is written, after every major step |
+| **Builder** (Primary Implementer) | Writes code, runs tests, iterates. Logs status, root cause, fix, result per iteration.                                                    | Phase 2 (after Challenger/Proxy negotiate)         |
+| **Proxy** (Human Stand-in)        | Answers Challenger's questions by researching codebase and docs. Never says "ask the user." Flags low-confidence decisions as REVIEWABLE. | When Challenger has questions                      |
+| **Researcher** (Fact-Finder)      | Independent knowledge agent. Subagents + web search + MCP servers. Structured reports with sources and confidence.                        | When Builder or Proxy is below 75% certainty       |
+| **Tester** (Test-First Gate)      | Creates tests BEFORE Builder writes code. Sandbox on dedicated NVMe. Builder can't see test code. Fail = passphrase revoked.              | Phase 1.5 (`/ralphtemplatetest` only)              |
 
 **Why adversarial roles?** Most AI coding failures happen because requirements were ambiguous, not because the code was wrong. The Challenger catches these before a single line is written. The Proxy keeps the loop running without human intervention. The Researcher prevents guessing.
 
@@ -74,11 +74,12 @@ The `/ralphtemplate` and `/ralphtemplatetest` commands generate orchestrator pro
 Every session auto-generates a unique completion passphrase:
 
 ```bash
-RALPH-$(head -c 24 /dev/urandom | xxd -p | tr -d '\n')
-# Example: RALPH-a3f7b2c94e1d08f6a2b3c5d7e1f4a09b2c4d6e8f0a1b3
+RALPH-$(printf '%08x' "$(date +%s)")-$(head -c 20 /dev/urandom | xxd -p | tr -d '\n')
+# Example: RALPH-66ff1a2b-a3f7b2c94e1d08f6a2b3c5d7e1f4a09b2c4d6e
 ```
 
-- 48 hex chars from `/dev/urandom` = 2^192 combinations, zero LLM token bias
+- 8-char epoch hex (structural temporal uniqueness) + 40 hex chars from `/dev/urandom` = true OS randomness, zero LLM token bias
+- Epoch is decodable: `printf '%d\n' 0x66ff1a2b` reveals generation timestamp
 - Detection uses `grep -Fx` (exact full-line match) — no regex, no partial matches
 - Previous `WORD NNNN` format was deprecated: LLMs consistently picked the same words (MARBLE, CONDOR, LATTICE)
 
@@ -108,6 +109,7 @@ bash scripts/migrate-to-hybrid.sh
 ```
 
 This does three things:
+
 - Adds a Stop hook to `~/.claude/settings.json` pointing to `scripts/stop-hook.sh`
 - Updates local commands with absolute paths to your repo
 - Removes any marketplace plugin entry from `enabledPlugins` (prevents double-fire)
@@ -283,7 +285,7 @@ The original Ralph Loop marketplace plugin had 6 critical issues:
 - **Frontmatter-safe extraction** — Only skips the first two `---` lines (original skips ALL `---`, corrupting prompts)
 - **Learnings consolidation** — On completion, extracts durable patterns into permanent project docs
 - **Recovery tooling** — `RESTORE/restore-hybrid.sh` checks and fixes all 6 configuration categories
-- **95 tests across 8 suites** — Passphrase detection, multi-terminal, lifecycle, hook input validation, migration
+- **137 tests across 10 suites** — Passphrase detection (v1+v2), multi-terminal, lifecycle, hook input validation, migration, session 20 fixes
 
 For the complete v3 setup guide with all configuration details, see [ralph-loop-v3.md](ralph-loop-v3.md).
 
@@ -326,6 +328,8 @@ ralphlooptemplates/
 ├── commands/                              # Slash commands (copy to ~/.claude/commands/)
 │   ├── ralphtemplate.md                   # Generate 4-role orchestrator prompts
 │   ├── ralphtemplatetest.md               # Generate 5-role prompts (adds Tester)
+│   ├── ralphtemplate-v2.md                # v2: adds EVALUATOR, dynamic iterations, DOCUMENTOR
+│   ├── ralphtemplatetest-v2.md            # v2: EVALUATOR + Tester + DOCUMENTOR + test preservation
 │   ├── boris-challenge.md                 # Challenge requirements before coding
 │   ├── ralph-loop.md                      # Self-iterating development loop
 │   ├── ralph-loop-safe.md                 # Safe loop with git checks
@@ -341,7 +345,7 @@ ralphlooptemplates/
 │   ├── migrate-to-hybrid.sh               # One-command v3 installation
 │   ├── rollback-to-plugin.sh              # Revert to plugin approach
 │   ├── learnings-preamble.md              # Per-iteration retrospective template
-│   └── test-*.sh                          # 8 test suites (95 tests total)
+│   └── test-*.sh                          # 10 test suites (137 tests total)
 ├── RESTORE/                               # Recovery tools
 │   ├── restore-hybrid.sh                  # Idempotent health check + fix (6 categories)
 │   └── README.md                          # Symptom-to-cause table
@@ -358,18 +362,20 @@ ralphlooptemplates/
 
 ## Commands Reference
 
-| Command | Description |
-|---------|-------------|
-| `/ralph-loop` | Start a self-iterating development loop |
-| `/ralph-loop-safe` | Same with git safety checks (feature branch required, clean working dir) |
-| `/cancel-ralph` | Cancel active loop (session-scoped, handles multi-terminal) |
-| `/ralphtemplate` | Generate 4-role orchestrator prompt |
-| `/ralphtemplatetest` | Generate 5-role prompt with test-first Tester |
-| `/boris-challenge` | Challenge requirements before coding (identify 5+ ambiguities) |
-| `/grill-me` | Staff engineer code review (scores 1-5, avg >= 4 required) |
-| `/prove-it` | Demand evidence that changes work (natural language proof) |
-| `/knowing-everything` | Retrospective and knowledge capture |
-| `/scrap-and-redo` | Rebuild with full accumulated context |
+| Command                 | Description                                                              |
+| ----------------------- | ------------------------------------------------------------------------ |
+| `/ralph-loop`           | Start a self-iterating development loop                                  |
+| `/ralph-loop-safe`      | Same with git safety checks (feature branch required, clean working dir) |
+| `/cancel-ralph`         | Cancel active loop (session-scoped, handles multi-terminal)              |
+| `/ralphtemplate`        | Generate 4-role orchestrator prompt                                      |
+| `/ralphtemplatetest`    | Generate 5-role prompt with test-first Tester                            |
+| `/ralphtemplate-v2`     | v2: adds EVALUATOR complexity tiers, dynamic iterations, DOCUMENTOR      |
+| `/ralphtemplatetest-v2` | v2: EVALUATOR + Tester + DOCUMENTOR + test preservation                  |
+| `/boris-challenge`      | Challenge requirements before coding (identify 5+ ambiguities)           |
+| `/grill-me`             | Staff engineer code review (scores 1-5, avg >= 4 required)               |
+| `/prove-it`             | Demand evidence that changes work (natural language proof)               |
+| `/knowing-everything`   | Retrospective and knowledge capture                                      |
+| `/scrap-and-redo`       | Rebuild with full accumulated context                                    |
 
 ---
 

@@ -3,6 +3,7 @@
 ## Overview
 
 Migrate ralph-loop from a marketplace plugin to a hybrid approach:
+
 - Local commands in ~/.claude/commands/ (already partially exist)
 - Stop hook in ~/.claude/settings.json (replaces plugin hooks.json)
 - Repo remains the single source of truth for all scripts
@@ -62,10 +63,13 @@ NOTE: Timeout set to 60s (stop-hook.sh does jq parsing, file operations, and pot
 ### Step 3: Disable the Plugin
 
 In ~/.claude/settings.json, change:
+
 ```json
 "ralph-loop@claude-plugins-official": true
 ```
+
 to:
+
 ```json
 "ralph-loop@claude-plugins-official": false
 ```
@@ -74,6 +78,7 @@ to:
 
 The cache-watchdog.sh SessionStart hook is no longer needed (we're not syncing to marketplace).
 Remove or comment out this entry from settings.json hooks.SessionStart:
+
 ```json
 {
   "hooks": [
@@ -93,6 +98,7 @@ Hook changes require a new session to take effect.
 ### Step 6: Verify
 
 In the new session:
+
 - `/ralph-loop "test task" --max-iterations 2 --completion-promise "TEST DONE"` should work
 - `/cancel-ralph` should list/cancel active loops
 - Plugin commands `/ralph-loop:ralph-loop` should NOT be available (or show as disabled)
@@ -102,6 +108,7 @@ In the new session:
 If migration breaks something, run: `bash $REPO/scripts/rollback-to-plugin.sh`
 
 Manual rollback steps:
+
 1. Re-enable plugin: set `"ralph-loop@claude-plugins-official": true` in settings.json
 2. Remove Stop hook: delete the "Stop" array from settings.json hooks
 3. Re-add cache-watchdog SessionStart hook
@@ -111,24 +118,29 @@ Manual rollback steps:
 ## Edge Cases Researched
 
 ### Shared Marketplace Repository
+
 Disabling ralph-loop does NOT affect the marketplace git checkout. Other plugins
 (superpowers, rust-analyzer-lsp) remain fully functional. The marketplace repo persists.
 
 ### Plugin Commands After Disable
+
 Known bug (GitHub #9996): disabled plugins may still show their tools. If `/ralph-loop:ralph-loop`
 still appears after disabling, it won't function. The local `/ralph-loop` takes priority anyway.
 
 ### installed_plugins.json
+
 The entry for ralph-loop remains in installed_plugins.json after disabling. This is expected.
 It's metadata only and does not affect functionality.
 
 ### Hook Stdin Parity
+
 Settings.json Stop hooks receive IDENTICAL stdin JSON as plugin Stop hooks:
 session_id, last_assistant_message, transcript_path, stop_hook_active, hook_event_name, cwd.
 ADDITIONALLY: settings.json hooks are MORE reliable for JSON output capture (GitHub #10875
 documents a bug where plugin hooks.json output isn't properly captured).
 
 ### Re-enabling the Plugin
+
 Set `"ralph-loop@claude-plugins-official": true` and start a new session. The marketplace
 version (possibly overwritten by /plugin update) would load. Run cache-sync.sh first.
 

@@ -33,7 +33,7 @@ HOOK_INPUT=$(cat)
 # stop_hook_active: true when continuing from a prior Stop hook block
 # NOTE on stop_hook_active: intentionally NOT used as an exit guard because Ralph Loop
 # works by repeatedly blocking stop events. On iteration 2+, stop_hook_active is always
-# true — that's expected behavior. Using it as an exit guard would kill the loop.
+# true -- that's expected behavior. Using it as an exit guard would kill the loop.
 # RESOLVED: Confirmed correct. Fallback paths handle any future semantic changes.
 HOOK_SESSION_ID=$(echo "$HOOK_INPUT" | jq -r '.session_id // empty')
 LAST_ASSISTANT_MSG=$(echo "$HOOK_INPUT" | jq -r '.last_assistant_message // empty')
@@ -116,7 +116,7 @@ fi
 
 # Validate numeric fields before arithmetic operations
 if [[ ! "$ITERATION" =~ ^[0-9]+$ ]]; then
-  echo "⚠️  Ralph loop: State file corrupted" >&2
+  echo "[WARN]  Ralph loop: State file corrupted" >&2
   echo "   File: $RALPH_STATE_FILE" >&2
   echo "   Problem: 'iteration' field is not a valid number (got: '$ITERATION')" >&2
   echo "" >&2
@@ -127,7 +127,7 @@ if [[ ! "$ITERATION" =~ ^[0-9]+$ ]]; then
 fi
 
 if [[ ! "$MAX_ITERATIONS" =~ ^[0-9]+$ ]]; then
-  echo "⚠️  Ralph loop: State file corrupted" >&2
+  echo "[WARN]  Ralph loop: State file corrupted" >&2
   echo "   File: $RALPH_STATE_FILE" >&2
   echo "   Problem: 'max_iterations' field is not a valid number (got: '$MAX_ITERATIONS')" >&2
   echo "" >&2
@@ -159,10 +159,10 @@ You have accumulated iteration learnings during this ralph loop session.
 Perform these consolidation steps before finishing:
 
 1. Read the learnings file at LEARNINGS_FILE_PLACEHOLDER
-2. Extract DURABLE patterns (not session-specific noise) — things that would help future sessions
+2. Extract DURABLE patterns (not session-specific noise) -- things that would help future sessions
 3. If the project has a LEARNINGS.md, APPEND any genuinely useful findings (do NOT delete or overwrite existing content)
 4. Update your auto-memory MEMORY.md with key architectural or workflow findings
-5. If any findings warrant CLAUDE.md updates (new commands, gotchas, patterns), add them concisely — one line per concept
+5. If any findings warrant CLAUDE.md updates (new commands, gotchas, patterns), add them concisely -- one line per concept
 6. Delete ONLY the temporary learnings file: LEARNINGS_FILE_PLACEHOLDER
    - Do NOT delete LEARNINGS.md (permanent project docs)
    - Do NOT delete CLAUDE.md (permanent project context)
@@ -183,7 +183,7 @@ After consolidation, output '${COMPLETION_PROMISE}' on its own line to signal fi
   # Mark state as consolidating so the NEXT stop-hook invocation knows to exit
   local TEMP_FILE="${RALPH_STATE_FILE}.tmp.$$"
   if grep -q '^consolidating:' "$RALPH_STATE_FILE"; then
-    # Already consolidating — this is the second pass, exit cleanly
+    # Already consolidating -- this is the second pass, exit cleanly
     echo "$EXIT_REASON"
     rm -f "$RALPH_STATE_FILE"
     rm -f "$LEARNINGS_FILE"  # Clean up if Claude didn't
@@ -199,7 +199,7 @@ After consolidation, output '${COMPLETION_PROMISE}' on its own line to signal fi
   # Block exit and inject consolidation prompt
   jq -n \
     --arg prompt "$CONSOLIDATION_PROMPT" \
-    --arg msg "📝 Ralph loop: Consolidating learnings before exit" \
+    --arg msg "[NOTE] Ralph loop: Consolidating learnings before exit" \
     '{
       "decision": "block",
       "reason": $prompt,
@@ -211,7 +211,7 @@ After consolidation, output '${COMPLETION_PROMISE}' on its own line to signal fi
 # Check if we're in consolidation mode (second pass after consolidation prompt)
 CONSOLIDATING=$(echo "$FRONTMATTER" | grep '^consolidating:' | sed 's/consolidating: *//' || echo "false")
 if [[ "$CONSOLIDATING" == "true" ]]; then
-  echo "✅ Ralph loop: Consolidation complete. Exiting."
+  echo "[OK] Ralph loop: Consolidation complete. Exiting."
   rm -f "$RALPH_STATE_FILE"
   rm -f "$LEARNINGS_FILE"  # Clean up if Claude didn't
   exit 0
@@ -219,7 +219,7 @@ fi
 
 # Check if max iterations reached
 if [[ $MAX_ITERATIONS -gt 0 ]] && [[ $ITERATION -ge $MAX_ITERATIONS ]]; then
-  emit_consolidation_and_exit "🛑 Ralph loop: Max iterations ($MAX_ITERATIONS) reached."
+  emit_consolidation_and_exit "[STOP] Ralph loop: Max iterations ($MAX_ITERATIONS) reached."
 fi
 
 # --- Get last assistant output ---
@@ -247,7 +247,7 @@ else
 fi
 
 if [[ -z "$LAST_OUTPUT" ]]; then
-  echo "⚠️  Ralph loop: No assistant output found (neither hook JSON nor transcript)" >&2
+  echo "[WARN]  Ralph loop: No assistant output found (neither hook JSON nor transcript)" >&2
   echo "   Ralph loop is stopping." >&2
   rm "$RALPH_STATE_FILE"
   exit 0
@@ -259,7 +259,7 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
   # Uses plain-text exact-line matching (grep -Fx). XML tags are stripped
   # by Claude Code's rendering pipeline, so only plain text works here.
   if echo "$LAST_OUTPUT" | grep -qFx "$COMPLETION_PROMISE"; then
-    emit_consolidation_and_exit "✅ Ralph loop: Completion promise detected: $COMPLETION_PROMISE"
+    emit_consolidation_and_exit "[OK] Ralph loop: Completion promise detected: $COMPLETION_PROMISE"
   fi
 fi
 
@@ -271,7 +271,7 @@ NEXT_ITERATION=$((ITERATION + 1))
 PROMPT_TEXT=$(awk '/^---$/ && fm_count<2 {fm_count++; next} fm_count>=2' "$RALPH_STATE_FILE")
 
 if [[ -z "$PROMPT_TEXT" ]]; then
-  echo "⚠️  Ralph loop: State file corrupted or incomplete" >&2
+  echo "[WARN]  Ralph loop: State file corrupted or incomplete" >&2
   echo "   File: $RALPH_STATE_FILE" >&2
   echo "   Problem: No prompt text found" >&2
   echo "" >&2
@@ -300,14 +300,14 @@ mv "$TEMP_FILE" "$RALPH_STATE_FILE"
 
 # Build system message with iteration count and completion promise info
 if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
-  SYSTEM_MSG="🔄 Ralph iteration $NEXT_ITERATION | To stop: output '$COMPLETION_PROMISE' on its own line (ONLY when genuinely complete)"
+  SYSTEM_MSG="[LOOP] Ralph iteration $NEXT_ITERATION | To stop: output '$COMPLETION_PROMISE' on its own line (ONLY when genuinely complete)"
 else
-  SYSTEM_MSG="🔄 Ralph iteration $NEXT_ITERATION | No completion promise set - loop runs infinitely"
+  SYSTEM_MSG="[LOOP] Ralph iteration $NEXT_ITERATION | No completion promise set - loop runs infinitely"
 fi
 
 # Add learnings reminder to system message
 if [[ "$LEARNINGS_ENABLED" == "true" ]]; then
-  SYSTEM_MSG="${SYSTEM_MSG} | 📝 Learnings: ${LEARNINGS_FILE}"
+  SYSTEM_MSG="${SYSTEM_MSG} | [NOTE] Learnings: ${LEARNINGS_FILE}"
 fi
 
 # Output JSON to block the stop and feed prompt back

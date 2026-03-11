@@ -275,6 +275,7 @@
 ### Test Suite Summary
 
 Total: 83 tests across 7 suites, all passing
+
 - test-passphrase-detection.sh: 18
 - test-multi-terminal.sh: 5
 - test-rename-migration.sh: 13
@@ -345,6 +346,7 @@ Total: 83 tests across 7 suites, all passing
 ### Test Suite Summary
 
 Total: 82 tests verified passing across 7 suites
+
 - test-passphrase-detection.sh: 18
 - test-multi-terminal.sh: 4
 - test-rename-migration.sh: 13
@@ -483,6 +485,7 @@ Three parallel research agents investigated:
 ### Test Suite Summary (session 12)
 
 Total: 95 tests across 8 suites, all passing
+
 - test-passphrase-detection.sh: 18
 - test-multi-terminal.sh: 4
 - test-rename-migration.sh: 13
@@ -625,7 +628,7 @@ Total: 95 tests across 8 suites, all passing (no count change — Test 2 behavio
 
 56. SANITIZED RESTORE/README.md
     - Replaced hardcoded user home paths with generic /path/to/ in example output section.
-    - Added docs/screenshot-*.png to .gitignore.
+    - Added docs/screenshot-\*.png to .gitignore.
 
 ### Surprises
 
@@ -680,6 +683,7 @@ Total: 95 tests across 8 suites, all passing (no count change — Test 2 behavio
       `~/.claude/commands/ralphtemplatetest.md` — identical. `stop-hook.sh` /tmp references are
       only in commented-out debug lines (27-28).
     - STATUS: NO CHANGES NEEDED — confirmed across all command and script files.
+    - UPDATE (session 20): SUPERSEDED by decision 72 — sandbox paths migrated to nvme-fast.
 
 ### Surprises
 
@@ -708,6 +712,7 @@ Total: 95 tests across 8 suites, all passing (no count change — Test 2 behavio
 ### Research Findings (session 16)
 
 Deep research via MCP agents (8 web searches, 9 page fetches, 13 authoritative sources):
+
 1. tmpfs sizing: kernel.org docs, Ubuntu blog (96.2% of 502 servers use <1GB /tmp), Launchpad #2069834
 2. journald volatile rejection: freedesktop.org journald.conf, man7.org, systemd GitHub #14588
    (hybrid volatile+persistent feature request — declined by maintainers)
@@ -721,3 +726,440 @@ Deep research via MCP agents (8 web searches, 9 page fetches, 13 authoritative s
 - `/etc/systemd/journald.conf.d/volatile.conf` — created (journald caps)
 - `/etc/fstab` — added tmpfs entry (backup at .pre-io-optimization.bak)
 - Fast NVMe workspace directory — created (sandbox/, tmp/, builds/, README.txt)
+
+## v2 Templates: EVALUATOR, Dynamic Iterations, DOCUMENTOR, Test Preservation (session 17)
+
+### Decisions Made
+
+61. CREATED v2 command files as NEW files (not editing originals)
+    - WHY: 16 sessions and 60 decisions built a proven stable system. Editing the originals risks
+      breaking tested behavior. New v2 files enable side-by-side comparison and instant rollback
+      (just delete 4 files).
+    - FILES: commands/ralphtemplatetest-v2.md (253 lines), commands/ralphtemplate-v2.md (190 lines)
+    - SYNC: Both copied to ~/.claude/commands/ (same as originals)
+
+62. CHOSE qualitative complexity tiers over numeric CHALLENGE_LEVEL
+    - WHY: Decision 54 proved numeric variable tracking fails over long Claude conversations.
+      The word-array passphrase system had token bias causing MARBLE/CONDOR/LATTICE repetition.
+      A numeric CHALLENGE_LEVEL 1-5 carries the SAME risk (Claude forgets or drifts the number).
+    - FIX: Qualitative tier names (LIGHT/STANDARD/THOROUGH/RIGOROUS/MAXIMAL) embedded directly
+      in role descriptions. Each tier's behaviors are self-contained text, not variable references.
+    - MATCHES: The system's proven pattern — 75% certainty gates use linguistic triggers ("BELOW
+      75 PERCENT CERTAINTY"), not tracked numeric state.
+    - TRADEOFF: Tier descriptions are longer than a simple number. But they work reliably.
+
+63. IMPLEMENTED dual-file DOCUMENTOR (raw .txt + haiku summary)
+    - WHY: Generated prompts required manual copy-paste from terminal. Raw .txt enables
+      `cat ralph-prompt-*.txt` piping directly into /ralph-loop. Haiku summary adds metadata
+      at ~$0.002 cost per generation.
+    - RAW FILE: Bash tool write (zero inference cost). Filename: ralph-prompt-YYYY-MM-DD-HHMM.txt
+    - SUMMARY FILE: Agent tool with model:haiku. Filename: ralph-prompt-YYYY-MM-DD-HHMM-summary.txt
+    - TRADEOFF: Summary adds 2-5s latency. Could fail silently. Raw file is the critical output.
+
+64. IMPLEMENTED test preservation via TESTS/ directory snapshots
+    - WHY: Sandbox tests were ephemeral (cleaned via trap). No record of test evolution or
+      adjustments made during iteration.
+    - STRUCTURE: TESTS/ralph-TIMESTAMP/before/ (Tester originals), after/ (post-iteration),
+      CHANGES.txt (plain-text change report with CORRECTION/ADDITION classification).
+    - TESTINGOFF: All test preservation stripped when TESTINGOFF is active.
+    - ONLY IN: /ralphtemplatetest-v2 (not /ralphtemplate-v2, which has no Tester).
+
+65. FIXED stale test-passphrase-detection.sh format regex
+    - WHY: Session 15 (decision 54) changed passphrase from WORD NNNN format to RALPH-hex format.
+      The test script was NOT updated — regex still validated ^[A-Z]+ [0-9]{4}... pattern.
+      This caused 5/18 test failures that went unnoticed for 2 sessions.
+    - FIX: Updated regex to ^RALPH-[0-9a-f]{48}$. Now 18/18 pass.
+    - LESSON: When changing a feature, grep for ALL tests/validations of the old behavior.
+
+### Surprises
+
+- The passphrase format test failure (5/18) existed since session 15 but was never caught because
+  the test suite was run but failures were attributed to "pre-existing issues" without investigation.
+  Two sessions of silent test rot.
+- MIGRATION_DECISIONS.md was referenced in MEMORY.md (decision 44) but never created. Either it was
+  planned and forgotten, or it was created and deleted. The learnings it would have contained are
+  already in LEARNINGS.md decisions 40-50.
+- The EVALUATOR's TESTINGOFF interaction creates a fragile dependency: the tier descriptions in the
+  template mention Tester test counts, but TESTINGOFF instructs Claude to "omit Tester-specific
+  guidance." This relies on Claude correctly interpreting removal, not structural enforcement.
+  A more robust approach would be separate tier descriptions for testing-on vs testing-off modes.
+- Adding .gitignore entries for DOCUMENTOR outputs (ralph-prompt-\*.txt) and test preservation (TESTS/)
+  was NOT in the original plan. Without these, the first v2 usage would commit ephemeral artifacts.
+
+### What Would Break If...
+
+- RESTORE/restore-hybrid.sh is run: v2 command files in ~/.claude/commands/ are NOT restored.
+  User must manually re-sync v2 files after a restore. LOW RISK — restore is rare.
+- Haiku model unavailable or rate-limited: Summary .txt silently fails, but raw .txt still created.
+  The raw file is the functional output; summary is convenience.
+- TESTS/ directory grows unbounded: Each v2 run creates a new timestamped subdirectory. No cleanup
+  mechanism. User must manually manage. MEDIUM RISK for long-running projects.
+- v2 templates diverge from v1 originals: If a bug is found in v1 roles (Builder, Challenger, etc.),
+  v2 must be manually updated too. Four files to maintain instead of two.
+
+### Session 18 — v3 Epoch-Stamped Passphrase Format (2026-03-10)
+
+65b. RESEARCHED hex passphrase compatibility across v1/v2 templates (continuation of decision 65)
+
+- FINDING: Both v1 and v2 use identical generation (/dev/urandom) and detection (grep -Fx). Format-agnostic.
+- FINDING: 3 stale state files with active:true from abandoned sessions. 4 test files had old WORD NNNN data.
+- STATUS: Research complete. Led to decision 66.
+
+66. UPGRADED passphrase from v2 (RALPH-hex48) to v3 (RALPH-epoch8-random40)
+
+- WHY: v2 uniqueness was probabilistic-only (2^192). v3 adds structural temporal uniqueness via epoch.
+- FORMAT: `RALPH-$(printf '%08x' "$(date +%s)")-$(head -c 20 /dev/urandom | xxd -p | tr -d '\n')`
+- BENEFIT: Epoch provides debuggability — `printf '%d\n' 0x66ff1a2b` tells you when passphrase was generated.
+- RISK: 6 command files must stay synced (4 repo + 2 installed). stop-hook.sh unchanged (grep -Fx is format-agnostic).
+- CLEANUP: Removed 3 stale state files, updated test data in 3 existing suites, updated 6 HTML diagrams.
+- TESTS: 25 new tests in test-passphrase-v2.sh (format, epoch, randomness, cross-session, detection, YAML round-trip).
+- STATUS: IMPLEMENTED. All 120 tests pass across 9 suites.
+
+### Test Suite Summary (session 18)
+
+Total: 120 tests across 9 suites, ALL PASSING
+
+- test-passphrase-detection.sh: 18 (regex updated for v3 format)
+- test-passphrase-v2.sh: 25 (NEW — v3 format, epoch, cross-session, YAML round-trip)
+- test-multi-terminal.sh: 4
+- test-rename-migration.sh: 13
+- test-cache-watchdog.sh: 7
+- test-consolidation.sh: 10
+- test-lifecycle.sh: 18
+- test-hook-input.sh: 12
+- test-migration.sh: 13
+
+## Retrospective: Institutional Memory Capture (session 19)
+
+### Decisions Made
+
+67. IDENTIFIED documentation stat drift across 3 sessions
+    - WHY: README.md said "60 decisions, 95 tests, 16 sessions" — actual is 66/120/18.
+      Stats were correct at session 12 and never updated in sessions 13-18.
+    - FIX: Updated README.md and ralph-loop-v3.md with current counts.
+    - RULE: Update README stats in the same commit as test/decision count changes.
+
+68. IDENTIFIED LEARNINGS.md decision 65 numbering collision
+    - WHY: Session 17 defined decision 65 (test regex fix). Session 18 reused "65" for a
+      different decision (passphrase compatibility research). Both are valid but share a number.
+    - FIX: Renamed session 18's "65" to "65b" with cross-reference.
+
+69. IDENTIFIED 5 stale documentation items
+    - ralph-loop-v3.md: v2 passphrase format (48 hex), test count (95/8), missing v2 commands
+    - README.md: stale stats (decisions/tests/sessions), missing v2 commands in reference/structure
+    - MIGRATION-DECISIONS.md: missing sessions 17-18 architecture decisions
+    - knowing-everything.md: references MIGRATION_DECISIONS.md (underscores) but file uses dashes
+
+70. IDENTIFIED v1/v2 template drift as untracked risk
+    - WHY: 4 template files share core role definitions (Builder, Challenger, Proxy, Researcher).
+      A bug fix in v1 role text must be manually replicated to v2. No automated check exists.
+    - MITIGATION: Added to CLAUDE.md Known Risks. Future work: create a diff-based drift check.
+
+### Surprises
+
+- README.md stat drift is a classic "stale comment" problem. The docs said one thing, reality said
+  another, and 3 sessions passed without anyone noticing. Automated stat extraction from test
+  output would prevent this.
+- The MIGRATION-DECISIONS.md filename inconsistency (dashes vs underscores in references) was never
+  caught because the file was only read manually, never programmatically. `knowing-everything.md`
+  still references the wrong name.
+- The v2 template file count (4 in repo + 4 installed = 8 copies) creates a maintenance surface
+  that's 4x the original. Each format change (like v3 passphrase) touches all 8 files.
+
+### Untracked Risks (identified session 19)
+
+1. v1/v2 template drift — shared role text with no automated sync check
+2. RESTORE/restore-hybrid.sh doesn't restore v2 commands — gap in recovery path
+3. TESTS/ directory unbounded growth — no cleanup mechanism for test preservation snapshots
+4. README/docs stat drift — counts require manual updates across multiple files
+5. 8-file sync surface (4 repo commands + 4 installed) for any template format change
+6. Post-reboot tmpfs verification still pending (from session 16)
+
+## SessionStart Hook Fix + Sandbox Path Migration (session 20)
+
+### Decisions Made
+
+71. ADDED "startup" matcher to SessionStart hook for init.sh
+    - WHY: init.sh hook had NO matcher, so it fired on ALL SessionStart events including /clear.
+      It produces zero JSON stdout, which Claude Code 2.1.72 may interpret as a hook failure.
+    - FIX: Added `"matcher": "startup"` to the SessionStart hook in settings.json.
+      init.sh sets SUDO_ASKPASS and loads MCP env vars — only needed at actual session start,
+      not on resume/clear/compact.
+    - FILE: ~/.claude/settings.json (SessionStart block)
+    - NOTE (session 20, amended): The matcher was CORRECT BEHAVIOR (limits when init.sh runs)
+      but was NOT the cause of the hook error. The actual root cause was decision 73 (background
+      process holding stdout FD open). Both fixes are needed.
+
+72. MIGRATED v2 sandbox paths from /tmp to /mnt/nvme-fast/claude-workspace/sandbox/
+    - WHY: Session 16 created the nvme-fast sandbox directory specifically for Ralph Loop,
+      but template files still hardcoded /tmp/ralph-test-sandbox-\*. Sandbox I/O was hitting
+      the root SPCC NVMe instead of the dedicated fast WD SN850X.
+    - SUPERSEDES: Session 16 decision "Zero Ralph Loop command changes" (MIGRATION-DECISIONS.md:257-268).
+      That decision assumed tmpfs /tmp would handle I/O. The nvme-fast path is more explicit and
+      doesn't depend on the pending tmpfs reboot.
+    - FILES: commands/ralphtemplatetest.md (3 occurrences), commands/ralphtemplatetest-v2.md (3 occurrences),
+      ~/.claude/commands/ copies synced, stop-hook.sh debug comment, .gitignore, CLAUDE.md
+    - TESTS: 17 new tests in test-session20-fixes.sh. All 137 tests pass across 10 suites.
+
+73. FIXED SessionStart hook error — background process held stdout FD open
+    - WHY: init.sh's `init_askpass_delayed()` spawns a background `( sleep 5; ... ) &` subshell.
+      The child inherits the parent's stdout pipe FD. Claude Code's hook runner reads stdout
+      until EOF. Main script exits (code 0), but the pipe stays open for 5s until the child's
+      sleep completes. The hook runner interprets this delayed EOF as a hook error.
+    - ROOT CAUSE PROVEN: 10 empirical tests. `time { bash init.sh | cat > /dev/null; }` took
+      5.007s before fix, 0.001s after. Five counterarguments tested and disproven.
+    - FIX: Changed `( ... ) &` to `( ... ) </dev/null >/dev/null 2>&1 & disown` on line 69.
+      Closes all inherited FDs so the child doesn't hold the parent's pipe open. `disown`
+      removes the job from bash's job table.
+    - FINDING: All `export` statements in init.sh are dead code from hook context — the hook
+      runs as a subprocess and exports die when it exits. The useful side effects are file writes
+      (display-env.sh, env.sh, init.log). MCP env vars work by accident (already set by shell profile).
+    - FILE: ~/.config/claude-code/init.sh (line 69)
+    - BACKUP: BACKUP_RESTORE/init.sh.pre-session20.bak
+    - RULE: Hook scripts MUST NOT spawn background processes that inherit stdout/stderr FDs.
+      Use `>/dev/null 2>&1 & disown` for any background work in hooks.
+
+### Test Suite Summary (session 20)
+
+Total: 137 tests across 10 suites, ALL PASSING
+
+- test-passphrase-detection.sh: 18
+- test-passphrase-v2.sh: 25
+- test-multi-terminal.sh: 4
+- test-rename-migration.sh: 13
+- test-cache-watchdog.sh: 7
+- test-consolidation.sh: 10
+- test-lifecycle.sh: 18
+- test-hook-input.sh: 12
+- test-migration.sh: 13
+- test-session20-fixes.sh: 17 (NEW)
+
+## Hook Stdin JSON Fix + Prettier Damage Recovery (session 21)
+
+### Decisions
+
+74. PostToolUse hooks used nonexistent `$CLAUDE_FILE_PATH` env var — rewrote as stdin JSON scripts
+    - WHY: `~/.claude/settings.json` PostToolUse hooks referenced `$CLAUDE_FILE_PATH` and
+      `$CLAUDE_BASH_COMMAND`. Per official docs and GitHub #9567, Claude Code does NOT set these
+      env vars. All hook data comes via stdin JSON (same mechanism stop-hook.sh uses).
+    - IMPACT: With `$CLAUDE_FILE_PATH=""`, the case statement always matched `*)` (default),
+      running `npx prettier --write ""` which either errored or reformatted the entire CWD.
+      Confirmed: prettier reformatted 5 HTML docs files (1000+ lines each of indentation changes).
+    - FIX: Created external scripts `~/.claude/hooks/post-tool-lint.sh` and
+      `~/.claude/hooks/post-tool-git-warn.sh` that read `tool_input.file_path` / `tool_input.command`
+      from stdin JSON via `jq`. Removed the `*) npx prettier --write` default case entirely —
+      only .ts/.tsx/.js/.jsx/.py files get linted now.
+    - COLLATERAL: Reverted 5 docs/*.html files via `git checkout`. Other .md files had only
+      harmless blank line additions from prettier (kept as-is alongside intentional content changes).
+    - FILES: ~/.claude/settings.json (PostToolUse section), ~/.claude/hooks/post-tool-lint.sh (NEW),
+      ~/.claude/hooks/post-tool-git-warn.sh (NEW)
+    - BACKUP: BACKUP_RESTORE/settings.json.pre-hook-fix.bak
+    - RULE: Claude Code hook data comes via stdin JSON, NOT env vars. Use `jq` to extract fields.
+      Pattern: `INPUT=$(cat); FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')`
+
+### Surprises
+
+- `$CLAUDE_FILE_PATH` and `$CLAUDE_BASH_COMMAND` never existed as env vars. The hooks were broken
+  since they were first created — every Write/Edit triggered prettier on empty path.
+- The `*) npx prettier --write ""` default case was silently reformatting non-code files (.md, .html)
+  on every Edit/Write. The `|| true` masked the formatting chaos.
+- Prettier markdown table formatting adds column padding (harmless but visible in git diff).
+- HTML prettier reformatting is destructive: changes `<!DOCTYPE html>` to `<!doctype html>`,
+  rewrites all indentation, reformats inline CSS. Thousands of lines changed per file.
+
+## Ghost Hooks in Cache + Local Directories (session 22)
+
+### Decisions
+
+75. FIXED ghost hooks firing from cache + local plugin directories
+    - WHY: Session 21 only disabled marketplace hooks.json. Two more hooks.json locations exist:
+      cache (`~/.claude/plugins/cache/`) and local (`~/.claude/plugins/local/`).
+      A fourth ghost was cache/superpowers with Windows .cmd hooks running on Linux.
+    - FIX: Renamed all hooks.json to hooks.json.disabled in marketplace, cache, and local dirs.
+    - RESTORE: restore-hybrid.sh Check 7 now automates ghost hooks.json detection across all 3 dirs.
+    - FILES: RESTORE/restore-hybrid.sh (Check 7 added), commands/ v2 renames reverted
+
+76. REVERTED v2 command file rename from session 21
+    - WHY: Session 21 renamed ralphtemplate-v2.md → rlphtempnew.md as a debug attempt, not the fix.
+    - FIX: Reverted to original names (ralphtemplate-v2.md, ralphtemplatetest-v2.md).
+
+## SessionStart Hook Investigation + init.sh Rewrite Discovery (session 23)
+
+### Decisions
+
+77. CONFIRMED SessionStart matcher "startup" IS valid — docs prove it
+    - WHY: Session 20 added `"matcher": "startup"` and noted it was "correct behavior."
+      Session 23 incorrectly REMOVED the matcher, then official docs at code.claude.com/docs/en/hooks
+      confirmed SessionStart matchers match on "how the session started" with values:
+      `startup`, `resume`, `clear`, `compact`.
+    - IMPACT: Removing the matcher caused the hook to fire on ALL session types instead of just new sessions.
+    - FIX: Restored `"matcher": "startup"` to settings.json SessionStart hook.
+    - RULE: SessionStart hooks DO support matchers (unlike Stop/UserPromptSubmit which don't).
+      Valid values: startup, resume, clear, compact.
+
+78. DISCOVERED init.sh `export` statements are dead code — CLAUDE_ENV_FILE is correct mechanism
+    - WHY: init.sh runs as a SessionStart hook SUBPROCESS. All `export` statements die when the
+      subprocess exits — they never reach Claude Code's shell. The official docs state:
+      "SessionStart hooks have access to the CLAUDE_ENV_FILE environment variable, which provides
+      a file path where you can persist environment variables for subsequent Bash commands."
+    - IMPACT: SUDO_ASKPASS, MCP env vars (.env.mcp), and all other exports from init.sh were NEVER
+      reaching Claude Code's shell. They only worked by accident because .bashrc ALSO sets them.
+    - EVIDENCE: init.sh logs `CLAUDE_ENV_FILE=NOT_SET` — meaning either Claude Code isn't providing
+      it or the script isn't detecting it correctly. Needs verification in live hook context.
+    - FIX NEEDED: Rewrite init.sh to use `echo "export VAR=val" >> "$CLAUDE_ENV_FILE"` pattern.
+    - FILE: ~/.config/claude-code/init.sh
+    - DOCS: https://code.claude.com/docs/en/hooks (SessionStart section, "Persist environment variables")
+
+79. DISCOVERED double SSH prompt root cause — two competing ssh-agents
+    - WHY: System runs two SSH agents simultaneously:
+      (a) gcr-ssh-agent via systemd (GNOME Credential agent, always running)
+      (b) ssh-agent started by .bashrc line 264-268 (starts new agent if SSH_AUTH_SOCK empty)
+      With `AddKeysToAgent yes` in ~/.ssh/config, git-askpass is called for each agent.
+    - EVIDENCE: git-askpass log shows simultaneous double prompts at same second with different PIDs.
+    - FIX NEEDED: Remove manual ssh-agent startup from .bashrc; let gcr-ssh-agent handle it.
+    - FILE: ~/.bashrc (lines 263-268), ~/.ssh/config (AddKeysToAgent yes)
+
+80. CONFIRMED Stop hooks do NOT support matchers (was already documented, now verified against official docs)
+    - Official docs list: "UserPromptSubmit, Stop, TeammateIdle, TaskCompleted, WorktreeCreate,
+      WorktreeRemove, InstructionsLoaded — no matcher support, always fires on every occurrence.
+      If you add a matcher field to these events, it is silently ignored."
+    - This corrects LEARNINGS.md surprise note from session 1 which was correct but is now
+      backed by official documentation URL.
+
+81. IDENTIFIED SessionStart hook error root cause — known Claude Code UI bug (GitHub #21643, #12671)
+    - WHY: Claude Code displays "hook error" when SessionStart hook stdout is NOT JSON or is empty.
+      Debug log from #12671: "Hook output does not start with {, treating as plain text."
+      The hook EXECUTES SUCCESSFULLY (exit 0) but the UI falsely shows an error.
+    - FIX NEEDED: init.sh must output valid JSON to stdout. Minimal fix: `echo '{"suppressOutput": true}'`
+      Better fix: use CLAUDE_ENV_FILE for env vars AND output JSON with additionalContext if needed.
+    - CONFIRMED: This is a display-only bug. The hook's side effects (file writes, logging) still work.
+      GitHub issues #21643, #12671, #19491, #10871 all document this behavior.
+    - SOURCES: https://github.com/anthropics/claude-code/issues/21643,
+      https://github.com/anthropics/claude-code/issues/12671
+
+82. CONFIRMED ~/.claude-planB is NOT a second hook source
+    - WHY: Claude Code hook discovery path is: ~/.claude/settings.json (user), .claude/settings.json
+      (project CWD), .claude/settings.local.json (project local), plugin hooks.json, skill frontmatter.
+      ~/.claude-planB is the alternate memory/projects directory, NOT in the hook discovery path.
+    - EVIDENCE: ~/.claude-planB/settings.json has NO hooks section (23 lines, minimal config).
+      Hooks are ONLY read from ~/.claude/settings.json.
+    - RISK: If CWD is home directory, ~/.claude/settings.json loads TWICE (as user AND project settings)
+      per GitHub #3465/#13288. This can cause hooks to fire twice.
+
+83. CONFIRMED npm /doctor warnings are cosmetic — not causing hook errors
+    - WHY: `npm list -g @anthropic-ai/claude-code` returns empty (already uninstalled).
+      /doctor detection logic checks npm cache history, not filesystem (GitHub #12414, #7734).
+    - FIX: Run `npm -g uninstall @anthropic-ai/claude-code` to clear npm cache metadata.
+      Also check ~/.claude.json installMethod field.
+
+### Surprises
+
+- SessionStart DOES support matchers (unlike Stop). Each event type has different matcher semantics.
+  The docs table at code.claude.com/docs/en/hooks#matcher-patterns is the definitive reference.
+- init.sh exports were dead code for the ENTIRE lifetime of the hook. They only appeared to work
+  because .bashrc independently sets the same vars (SUDO_ASKPASS, MCP API keys via sourcing).
+- The `init_askpass_delayed()` background process was triply useless: (1) subprocess exports die,
+  (2) the background child's exports die separately, (3) the 5-second delay serves no purpose in
+  hook context since it was designed for shell-sourced init, not subprocess hooks.
+- CLAUDE_ENV_FILE is a SessionStart-ONLY feature. Other hook types don't have access to it.
+- The "SessionStart hook error" displayed for 3+ sessions was purely cosmetic — the hook worked fine.
+  GitHub has 5+ issues documenting this exact behavior. The fix is trivial: output JSON to stdout.
+- Dual Claude Code installations (npm + native) flagged by /doctor are false positives from npm cache
+  metadata. The npm package was already uninstalled but cache entries persist.
+- ~/.claude-planB/settings.json has `ralph-loop@claude-plugins-official: true` while
+  ~/.claude/settings.json has it as `false`. This discrepancy is CRITICAL because planB IS
+  the active config (claudeB alias sets CLAUDE_CONFIG_DIR=~/.claude-planB).
+
+84. DISCOVERED config directory mismatch — ALL session 12-22 edits were to wrong file
+    - WHY: User runs `claudeB` alias (in ~/.bash_aliases:67) which sets
+      `CLAUDE_CONFIG_DIR="$HOME/.claude-planB"`. This makes ~/.claude-planB/settings.json
+      the active config. ~/.claude/settings.json is COMPLETELY IGNORED.
+    - IMPACT: The entire hybrid architecture (Stop hook, SessionStart hook, PostToolUse hooks)
+      was configured in ~/.claude/settings.json but NEVER active in claudeB sessions.
+      Ralph-loop's Stop hook doesn't fire. init.sh doesn't run. PostToolUse linting doesn't run.
+    - EVIDENCE: ~/.claude-planB/settings.json has NO hooks section (23 lines, just enabledPlugins).
+    - FIX NEEDED: Port hooks from ~/.claude/settings.json to ~/.claude-planB/settings.json.
+
+85. IDENTIFIED actual SessionStart error source — ghost plugin hooks in ~/.claude-planB/plugins/
+    - WHY: Session 22 disabled ghost hooks.json in ~/.claude/plugins/ but NEVER touched
+      ~/.claude-planB/plugins/. Five plugin hooks.json files with SessionStart hooks exist:
+      learning-output-style (ghost), explanatory-output-style (ghost), superpowers (ghost),
+      semgrep (2 cache versions, enabled). These output non-JSON/empty → triggers UI bug #21643.
+    - FIX NEEDED: Rename to hooks.json.disabled in ~/.claude-planB/plugins/ (same as session 22 did for ~/.claude/plugins/).
+
+## Session 24: Config Mismatch Fix + Ghost Hook Eradication (CONFIRMED WORKING)
+
+### Decisions Made
+
+86. FIXED config directory mismatch — ported hooks to ~/.claude-planB/settings.json
+    - WHY: Sessions 12-22 all edited ~/.claude/settings.json, but `claudeB` reads from ~/.claude-planB/settings.json.
+      The entire hybrid architecture (Stop hook, SessionStart, PostToolUse) was non-functional in claudeB sessions.
+    - HOW: Copied hooks section from ~/.claude/settings.json to ~/.claude-planB/settings.json.
+      SessionStart (init.sh), Stop (stop-hook.sh), PostToolUse (lint + git-warn) all ported.
+    - BACKUP: ~/.claude-planB/BACKUP_RESTORE/settings.json.pre-session24.bak
+    - ROLLBACK: bash ~/.claude-planB/BACKUP_RESTORE/rollback-session24.sh
+
+87. DISABLED 10 ghost hooks.json files in ~/.claude-planB/plugins/
+    - WHY: Plugin hooks.json files fire SessionStart hooks even when the plugin's CLI tool isn't installed.
+      Non-JSON output from failed commands triggers Claude Code UI error display (GitHub #21643, #12671).
+    - TARGETS: learning-output-style (marketplace, ghost), explanatory-output-style (marketplace, ghost),
+      superpowers (cache, Windows .cmd on Linux), ralph-loop (marketplace + 4 cache = 5 files),
+      semgrep (2 cache versions — semgrep CLI NOT INSTALLED, `semgrep mcp` returns command-not-found).
+    - TOTAL: 10 hooks.json → hooks.json.disabled
+    - LEFT ACTIVE: hookify (no SessionStart), security-guidance (no SessionStart, 4 cache + 1 marketplace)
+
+88. FIXED init.sh to output valid JSON — prevents GitHub #21643 UI bug
+    - WHY: SessionStart hooks that output empty or non-JSON stdout trigger Claude Code's error display.
+      init.sh previously output nothing (all logging went to file).
+    - HOW: Added `echo '{"suppressOutput": true}'` as final stdout output.
+    - ALSO: Made MCP env loading CLAUDE_CONFIG_DIR-aware (tries $CLAUDE_CONFIG_DIR/.env.mcp first, falls back to ~/.claude/.env.mcp).
+
+89. FIXED CLAUDE_ENV_FILE write — hook creates the file, not appends
+    - WHY: init.sh checked `-w "$CLAUDE_ENV_FILE"` (is file writable?) but the file doesn't exist yet.
+      Claude Code provides the path and expects the hook to CREATE the file. The parent directory exists and is writable.
+    - HOW: Changed check from `-w "$CLAUDE_ENV_FILE"` to `-d "$(dirname "$CLAUDE_ENV_FILE")" && -w "$(dirname "$CLAUDE_ENV_FILE")"`.
+      Changed `>>` (append) to `>` (create). Now SUDO_ASKPASS persists to Claude session via CLAUDE_ENV_FILE.
+    - EVIDENCE: Log showed `CLAUDE_ENV_FILE not available` despite path being set. Parent dir existed but was empty.
+
+90. FIXED double SSH passphrase prompts — removed competing ssh-agent from .bashrc
+    - WHY: Two ssh-agents running: gcr-ssh-agent (via systemd user session, always provides SSH_AUTH_SOCK)
+      + manual `ssh-agent -s` in .bashrc (lines 264-268). Both tried to add ~/.ssh/id_ed25519,
+      causing two passphrase prompts per terminal.
+    - HOW: Replaced .bashrc block with: `if [ -n "$SSH_AUTH_SOCK" ]; then ssh-add -l &>/dev/null || ssh-add ...; fi`
+      Only adds key if agent exists and key not already loaded.
+    - BACKUP: ~/.claude-planB/BACKUP_RESTORE/bashrc-ssh-section.pre-session24.bak
+
+91. DISCOVERED: semgrep plugin enabled but CLI not installed — hooks call nonexistent binary
+    - WHY: semgrep@claude-plugins-official is `true` in planB enabledPlugins, but `which semgrep` returns nothing.
+      Two cache hooks.json files had SessionStart hooks calling `semgrep mcp -k inject-secure-defaults`.
+      The command fails with command-not-found error (non-JSON), triggering UI bug.
+    - LESSON: Enabled plugins with hooks can cause errors if their CLI dependency isn't installed.
+      The plugin system doesn't verify CLI availability before firing hooks.
+    - FIX: Disabled semgrep hooks.json files. Left plugin enabled in enabledPlugins (it may provide
+      MCP tools that work via Docker without local CLI).
+
+### Surprises
+
+- The config directory mismatch went undetected for 12 sessions (sessions 12-23). Every hook debugging
+  session was editing the wrong file. The fix was trivial once identified — copy the hooks section.
+- `CLAUDE_CONFIG_DIR` completely redirects ALL config reading. There is no fallback to ~/.claude/.
+  This is by design (multi-account isolation) but means TWO settings.json files must be maintained.
+- CLAUDE_ENV_FILE contract: Claude Code provides the path, the hook CREATES the file. The `-w` test
+  (file writable?) is wrong — the file doesn't exist yet. Check parent dir writable instead.
+- Plugin hooks fire even for plugins whose CLI isn't installed. The plugin system doesn't check
+  if the hook command exists before executing it. A `semgrep` hook on a system without semgrep
+  produces a shell error message on stdout, which Claude Code interprets as non-JSON = error.
+- The original plan left semgrep hooks active ("legitimate, enabled plugin"). This was wrong.
+  Being enabled in enabledPlugins doesn't mean the hooks will succeed — the CLI must also exist.
+
+### New Untracked Risks (session 24)
+
+1. `/plugin update` will re-enable ghost hooks in ~/.claude-planB/plugins/ (same as ~/.claude/ risk).
+   restore-hybrid.sh Check 7 only checks ~/.claude/plugins/, NOT ~/.claude-planB/plugins/.
+2. Two settings.json files must stay in sync. No automated diff/sync mechanism exists.
+3. Semgrep plugin enabled but CLI not installed — if semgrep hooks.json is restored by /plugin update,
+   the SessionStart error returns. Consider either installing semgrep or removing from enabledPlugins.
+4. CLAUDE_ENV_FILE may not be available in all hook contexts (e.g., PostToolUse, Stop). Only verified
+   for SessionStart hooks. Other hook types may not set this variable.
+5. init.sh now hardcodes `{"suppressOutput": true}` JSON — if Claude Code changes the expected format,
+   this could break. The JSON key name is from GitHub issue discussion, not official docs.

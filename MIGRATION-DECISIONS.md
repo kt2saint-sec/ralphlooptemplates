@@ -11,6 +11,7 @@
 completely ignoring `installPath`. The local install approach was non-functional.
 
 **Architecture**: cache-sync.sh now syncs to all three directories:
+
 1. `marketplaces/` (PRIMARY - what Claude Code actually loads)
 2. `cache/` (secondary - unclear if used, kept for safety)
 3. `local/` (reference copy - not functional but kept)
@@ -52,6 +53,7 @@ No XML tags at any point in the pipeline.
 `CLAUDE_SESSION_ID` env var does not exist.
 
 **Architecture**:
+
 1. Setup: generates uuidgen ID, creates `ralph-loop.{UUID}.local.md`
 2. Stop hook iteration 1: reads `session_id` from hook JSON, renames file to `ralph-loop.{SESSION_ID}.local.md`
 3. Stop hook iteration 2+: O(1) direct lookup by hook session_id
@@ -66,6 +68,7 @@ No XML tags at any point in the pipeline.
 Our version creates `ralph-loop.{SESSION_ID}.local.md`. Must support both.
 
 **Architecture**: `(.claude/ralph-loop.loca[l].md .claude/ralph-loop.*.local.md)`
+
 - `loca[l].md` char class forces nullglob to apply (literal paths bypass nullglob)
 - `*.local.md` catches session-scoped files
 
@@ -98,6 +101,7 @@ being ignored). The fundamental problem: Claude Code loads plugins from a git ch
 `/plugin update` overwrites. No amount of cache-sync tooling can prevent this.
 
 **Architecture**:
+
 1. Plugin `ralph-loop@claude-plugins-official` entry REMOVED from enabledPlugins (not just disabled — prevents GitHub #28554 spontaneous re-enable)
 2. Stop hook added to settings.json, pointing to repo's `scripts/stop-hook.sh`
 3. Local commands in `~/.claude/commands/`: ralph-loop.md, cancel-ralph.md, ralph-loop-help.md
@@ -123,12 +127,13 @@ single-user project. A setup script could generate user-specific paths if needed
 outside the project directory, to prevent the AI from coding simply to pass tests.
 
 **Architecture**:
+
 - Role 5 (Tester) activates in Phase 1.5 (after Challenger, before Builder)
-- Sandbox directory: `/tmp/ralph-test-sandbox-SESSION_ID/`
+- Sandbox directory: `/mnt/nvme-fast/claude-workspace/sandbox/ralph-test-sandbox-SESSION_ID/` (migrated from `/tmp/` in session 20)
 - Tests verify expected BEHAVIOR, not implementation details
 - Builder implements AGAINST the tests (cannot see test code before starting)
 - Post-completion: final test run in sandbox, promise revoked if tests fail
-- Sandbox cleanup: `trap "rm -rf /tmp/ralph-test-sandbox-*" EXIT`
+- Sandbox cleanup: `trap "rm -rf /mnt/nvme-fast/claude-workspace/sandbox/ralph-test-sandbox-SESSION_ID" EXIT`
 
 **TESTINGOFF toggle**: Detected as standalone word in arguments. Strips all Role 5, sandbox,
 and test-first sections from generated prompt. Unusual all-caps compound word avoids false positives.
@@ -149,6 +154,7 @@ to avoid collisions in multi-terminal setups.
 makes the system architecture accessible for LinkedIn posts, README, and onboarding.
 
 **Architecture**: 4 HTML files in `docs/` with matching `screenshot-*.png` files:
+
 1. `diagram.html` — Main system architecture (the "hero" diagram)
 2. `ralphtemplatetest-diagram.html` — /ralphtemplatetest-specific flow
 3. `before-after-diagram.html` — Original plugin vs patched hybrid
@@ -186,6 +192,7 @@ for one-time use. The rollback script reverts entirely. Neither handles "fix wha
 keep what's working."
 
 **Architecture**: `RESTORE/restore-hybrid.sh` — a standalone script that:
+
 1. Checks 6 categories of potential breakage
 2. Fixes only what's wrong (skips what's correct)
 3. Reports all findings (WARN/FIX/OK)
@@ -219,6 +226,7 @@ cause. AMD ROCm driver crashes and OOM events require persistent logs for post-m
 systemd maintainers declined a hybrid volatile+persistent feature (GitHub #14588).
 
 **Architecture**: `Storage=persistent` with aggressive caps:
+
 - `SystemMaxUse=2G` (down from default 10% of root filesystem — can be hundreds of GB on large drives)
 - `MaxRetentionSec=2weeks` (auto-prune old entries)
 - `MaxFileSec=1week` (rotate weekly)
@@ -235,6 +243,7 @@ the 360GB default cap, not the existence of persistent storage.
 
 **Architecture**: Add fstab entry only. Takes effect on next reboot when all services initialize
 with clean /tmp. No live mount code in the script at all (removed, not just skipped).
+
 - Entry: `tmpfs /tmp tmpfs defaults,noatime,nosuid,nodev,size=16G 0 0`
 - No `noexec`: Claude Code subagents may compile/execute test binaries in /tmp
 - 16GB cap: 5.7x headroom over peak 2.8GB usage. 50% default wastes RAM budget on high-memory systems.
@@ -256,13 +265,176 @@ that prevented the crash investigation from being disrupted.
 
 ### Decision: Zero Ralph Loop command changes
 
-**Context**: Ralph Loop sandbox writes to `/tmp/ralph-test-sandbox-SESSION_ID/`. When /tmp becomes
+**SUPERSEDED by session 20 (decision 72)**: Sandbox paths migrated from `/tmp/ralph-test-sandbox-*`
+to `/mnt/nvme-fast/claude-workspace/sandbox/ralph-test-sandbox-*`. The nvme-fast path is explicit
+and doesn't depend on the pending tmpfs /tmp reboot.
+
+**Original context (session 16)**: Ralph Loop sandbox writes to `/tmp/ralph-test-sandbox-SESSION_ID/`. When /tmp becomes
 tmpfs, this path stays identical but writes to RAM instead of disk.
 
-**Architecture**: No code changes. The sandbox benefits automatically because tmpfs is transparent
+**Original architecture**: No code changes. The sandbox benefits automatically because tmpfs is transparent
 to applications. The path `/tmp/...` resolves to whatever filesystem is mounted at /tmp. Ephemeral
 sandbox + RAM-backed storage is the ideal combination (fast writes, auto-cleanup).
 
-**Alternative considered**: Adding `RALPH_SANDBOX_BASE` env var to redirect sandbox to
+**Alternative considered (session 16)**: Adding `RALPH_SANDBOX_BASE` env var to redirect sandbox to
 a fast secondary NVMe workspace directory. Rejected because tmpfs /tmp already solves the I/O
 problem, and adding a configurable base path increases complexity for zero benefit.
+
+**Why superseded (session 20)**: The tmpfs /tmp fstab entry requires a reboot that hasn't happened yet.
+Meanwhile, sandbox I/O continued hitting the root SPCC NVMe. Explicit nvme-fast paths provide
+immediate benefit and work regardless of /tmp mount status.
+
+## v2 Template Architecture (session 17)
+
+### Decision: New files instead of editing originals
+
+**Context**: 16 sessions and 60 decisions built proven v1 templates. Adding EVALUATOR, dynamic
+iterations, and DOCUMENTOR required significant structural changes to the template commands.
+
+**Architecture**: Created 4 new files (2 repo + 2 installed):
+
+- `commands/ralphtemplate-v2.md` (190 lines) — adds EVALUATOR + DOCUMENTOR
+- `commands/ralphtemplatetest-v2.md` (253 lines) — adds EVALUATOR + DOCUMENTOR + test preservation
+- Both copied to `~/.claude/commands/`
+
+**Why not edit originals**: Editing v1 would risk breaking tested behavior (95 tests at the time).
+New files enable side-by-side comparison and instant rollback (delete 4 files). The v1/v2 versions
+can be tested independently.
+
+**Tradeoff**: Core roles (Builder, Challenger, Proxy, Researcher) are duplicated across v1/v2.
+A bug fix in v1 must be manually applied to v2. No automated drift detection exists.
+
+### Decision: Qualitative complexity tiers over numeric CHALLENGE_LEVEL
+
+**Context**: Decision 54 (session 15) proved LLMs can't reliably track numeric variables across
+long conversations. The word-array passphrase had token bias. A numeric CHALLENGE_LEVEL 1-5
+carries the same risk.
+
+**Architecture**: EVALUATOR assigns qualitative tiers: LIGHT/STANDARD/THOROUGH/RIGOROUS/MAXIMAL.
+Each tier's behaviors are embedded as self-contained text in role descriptions, not variable
+references. This matches the 75% certainty gate pattern (linguistic trigger, not tracked state).
+
+**Tradeoff**: Tier descriptions are longer than a simple number. But they work reliably because
+each tier is a standalone paragraph, not a number that must be remembered across turns.
+
+### Decision: DOCUMENTOR with dual-file output
+
+**Context**: Generated prompts required manual copy-paste from terminal output.
+
+**Architecture**:
+
+1. Raw .txt file written via Bash tool (zero inference cost). Enables `cat | /ralph-loop` piping.
+2. Summary .txt written via Agent tool with model:haiku (~$0.002/generation). Includes metadata,
+   tier assessment, role count, and suggested `/ralph-loop` command.
+
+**Tradeoff**: Summary adds 2-5s latency and may fail silently. Raw file is the critical output.
+
+### Decision: Test preservation via TESTS/ directory
+
+**Context**: Sandbox tests were ephemeral (cleaned via trap). No record of test evolution.
+
+**Architecture**: `/ralphtemplatetest-v2` only. Copies sandbox tests to `TESTS/ralph-TIMESTAMP/before/`
+and `TESTS/ralph-TIMESTAMP/after/` with `CHANGES.txt`. TESTINGOFF strips all preservation code.
+
+**Tradeoff**: TESTS/ grows unbounded (one directory per run). No cleanup mechanism.
+`.gitignore` prevents accidental commits.
+
+## v3 Passphrase Format (session 18)
+
+### Decision: Add epoch timestamp to passphrase
+
+**Context**: v2 passphrase (RALPH- + 48 hex chars) had probabilistic-only uniqueness (2^192).
+No way to determine when a passphrase was generated without external records.
+
+**Architecture**: `RALPH-$(printf '%08x' "$(date +%s)")-$(head -c 20 /dev/urandom | xxd -p | tr -d '\n')`
+
+- First 8 hex chars = epoch timestamp (structural temporal uniqueness)
+- Remaining 40 hex chars = /dev/urandom randomness
+- Regex updated from `^RALPH-[0-9a-f]{48}$` to `^RALPH-[0-9a-f]{8}-[0-9a-f]{40}$`
+
+**Why epoch**: Decodable (`printf '%d\n' 0xEPOCH`) for debugging stale state files.
+Passphrases from different seconds are guaranteed structurally different, even if /dev/urandom
+hypothetically returned identical bytes.
+
+**Tradeoff**: 6 command files (4 repo + 2 installed) must be updated atomically. stop-hook.sh
+unchanged (grep -Fx is format-agnostic). 25 new tests in test-passphrase-v2.sh.
+
+## Dual Config Directory Architecture (session 24)
+
+### Decision: Maintain hooks in BOTH settings.json files
+
+**Context**: `claudeB` alias sets `CLAUDE_CONFIG_DIR=~/.claude-planB`, completely redirecting all
+config reading. Sessions 12-22 edited `~/.claude/settings.json` — which is IGNORED when running
+as `claudeB`. The entire hybrid architecture (Stop hook, SessionStart, PostToolUse) was
+non-functional for 12 sessions.
+
+**Architecture**: Both config directories now have identical hooks sections:
+
+1. `~/.claude/settings.json` — active when running plain `claude`
+2. `~/.claude-planB/settings.json` — active when running `claudeB`
+3. Hook commands use absolute paths (not relative to config dir)
+4. `~/.claude-planB/commands/` is a symlink to `~/.claude/commands/` — shared commands
+
+**Why not symlink settings.json**: The two files have different `enabledPlugins` sections
+(different accounts may want different plugins). Only the hooks section needs to be identical.
+
+**Tradeoff**: Two files to maintain. No automated sync mechanism. If a hook is added to one
+settings.json, it must be manually added to the other. This is acceptable because hook changes
+are rare (6 changes across 24 sessions).
+
+**Rollback**: `bash ~/.claude-planB/BACKUP_RESTORE/rollback-session24.sh` restores planB
+settings.json to its pre-session-24 state (no hooks).
+
+### Decision: Disable ALL plugin hooks.json in planB (aggressive approach)
+
+**Context**: 10 hooks.json files in `~/.claude-planB/plugins/` were causing SessionStart errors.
+Initially left semgrep hooks active (enabled plugin, "legitimate"). But semgrep CLI wasn't
+installed — hooks calling `semgrep mcp` failed with command-not-found, outputting non-JSON
+to stdout, triggering the UI error.
+
+**Architecture**: Renamed ALL non-essential hooks.json to hooks.json.disabled:
+- 3 marketplace ghosts (learning-output-style, explanatory-output-style, ralph-loop)
+- 5 cache versions (ralph-loop x4, superpowers)
+- 2 semgrep cache versions (CLI not installed)
+- Left 6 active: hookify (1) + security-guidance (5) — neither has SessionStart hooks
+
+**Why aggressive**: Plugin hooks are an unreliable delivery mechanism (GitHub #10875, #21643).
+Settings.json hooks are strictly more reliable. Disabling ALL plugin hooks that have SessionStart
+events eliminates the class of error entirely. Any necessary hook behavior should be in settings.json.
+
+**Tradeoff**: `/plugin update` runs `git pull` on marketplace, restoring disabled hooks.json files.
+Must re-disable after every `/plugin update`. Cache hooks persist until version change.
+
+### Decision: init.sh outputs JSON to prevent UI bug
+
+**Context**: GitHub #21643 and #12671 document that SessionStart hooks outputting non-JSON or
+empty stdout trigger Claude Code's error display in the UI. The hook executes correctly — the
+error is purely cosmetic. But it's confusing and masks real errors.
+
+**Architecture**: `echo '{"suppressOutput": true}'` as the final line of init.sh.
+All other output goes to the log file (`~/.cache/claude-code/init.log`).
+
+**Why suppressOutput**: This key is mentioned in GitHub issue discussions as the way to signal
+"hook ran successfully, nothing to display." Not in official docs — convention from community.
+
+**Tradeoff**: If Claude Code changes the expected JSON format, this could break. Low risk —
+the key is ignored if unrecognized (hooks are best-effort).
+
+### Decision: CLAUDE_ENV_FILE for env var persistence
+
+**Context**: init.sh `export SUDO_ASKPASS=...` is dead code — hooks run as subprocesses,
+exports die when the process exits. CLAUDE_ENV_FILE is the official mechanism for SessionStart
+hooks to persist environment variables to the Claude Code session.
+
+**Architecture**:
+1. Claude Code sets `CLAUDE_ENV_FILE=/path/to/session-env/UUID/sessionstart-hook-N.sh`
+2. The parent directory exists and is writable; the file does NOT exist yet
+3. Hook creates the file with `KEY=VALUE` pairs (no `export` prefix)
+4. Claude Code reads the file after hook exits and sets the env vars in the session
+
+**Why not `-w` check**: The file doesn't exist when the hook runs. `-w` tests if a file is
+writable, returning false for nonexistent files. Check parent dir writable instead:
+`[[ -d "$(dirname "$CLAUDE_ENV_FILE")" && -w "$(dirname "$CLAUDE_ENV_FILE")" ]]`
+
+**Tradeoff**: CLAUDE_ENV_FILE availability is only confirmed for SessionStart hooks.
+Other hook types (Stop, PostToolUse) may not set this variable.

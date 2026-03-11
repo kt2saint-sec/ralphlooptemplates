@@ -189,6 +189,36 @@ else
   warn "setup-ralph-loop.sh MISSING from $REPO/scripts/ — /ralph-loop command will fail!"
 fi
 
+# --- Check 7: Ghost marketplace/cache/local plugin hooks ---
+log ""
+log "Check 7: Ghost plugin hooks.json files"
+GHOST_HOOKS=0
+# Check all three plugin directories: marketplace, cache, local
+for PLUGIN_BASE in \
+  "$HOME/.claude/plugins/marketplaces/claude-plugins-official/plugins" \
+  "$HOME/.claude/plugins/cache/claude-plugins-official" \
+  "$HOME/.claude/plugins/local"; do
+  [[ -d "$PLUGIN_BASE" ]] || continue
+  while IFS= read -r -d '' HOOK_FILE; do
+    # Skip hooks for plugins that are enabled AND functional (currently only none qualify)
+    PLUGIN_DIR=$(dirname "$(dirname "$HOOK_FILE")")
+    PLUGIN_NAME=$(basename "$PLUGIN_DIR")
+    # ralph-loop hooks in any location are always ghost hooks (we use settings.json Stop hook)
+    # Other plugins with ${CLAUDE_PLUGIN_ROOT} in their commands are broken
+    if [[ "$PLUGIN_NAME" == "ralph-loop" ]] || grep -q 'CLAUDE_PLUGIN_ROOT' "$HOOK_FILE" 2>/dev/null; then
+      GHOST_HOOKS=$((GHOST_HOOKS + 1))
+      warn "Ghost hooks.json: $HOOK_FILE"
+      if ! $DRY_RUN; then
+        mv "$HOOK_FILE" "${HOOK_FILE}.disabled"
+        fix "Disabled: $HOOK_FILE"
+      fi
+    fi
+  done < <(find "$PLUGIN_BASE" -name "hooks.json" -not -name "*.disabled" -print0 2>/dev/null)
+done
+if [[ "$GHOST_HOOKS" -eq 0 ]]; then
+  ok "No ghost plugin hooks.json files found"
+fi
+
 # --- Summary ---
 log ""
 log "================================"

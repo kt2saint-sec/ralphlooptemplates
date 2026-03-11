@@ -13,6 +13,7 @@ hide-from-slash-command-tool: "true"
 # Cancel Ralph
 
 SAFETY: Ralph loop files use specific naming patterns. ONLY delete files matching these EXACT patterns:
+
 - State files: `.claude/ralph-loop.{SESSION_ID}.local.md`
 - Learnings files: `.claude/ralph-learnings.{SESSION_ID}.md`
 

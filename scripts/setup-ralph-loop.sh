@@ -63,7 +63,7 @@ HELP_EOF
       ;;
     --max-iterations)
       if [[ -z "${2:-}" ]]; then
-        echo "❌ Error: --max-iterations requires a number argument" >&2
+        echo "[ERROR] Error: --max-iterations requires a number argument" >&2
         echo "" >&2
         echo "   Valid examples:" >&2
         echo "     --max-iterations 10" >&2
@@ -74,7 +74,7 @@ HELP_EOF
         exit 1
       fi
       if ! [[ "$2" =~ ^[0-9]+$ ]]; then
-        echo "❌ Error: --max-iterations must be a positive integer or 0, got: $2" >&2
+        echo "[ERROR] Error: --max-iterations must be a positive integer or 0, got: $2" >&2
         echo "" >&2
         echo "   Valid examples:" >&2
         echo "     --max-iterations 10" >&2
@@ -89,7 +89,7 @@ HELP_EOF
       ;;
     --completion-promise)
       if [[ -z "${2:-}" ]]; then
-        echo "❌ Error: --completion-promise requires a text argument" >&2
+        echo "[ERROR] Error: --completion-promise requires a text argument" >&2
         echo "" >&2
         echo "   Valid examples:" >&2
         echo "     --completion-promise 'DONE'" >&2
@@ -121,7 +121,7 @@ PROMPT="${PROMPT_PARTS[*]}"
 
 # Validate prompt is non-empty
 if [[ -z "$PROMPT" ]]; then
-  echo "❌ Error: No prompt provided" >&2
+  echo "[ERROR] Error: No prompt provided" >&2
   echo "" >&2
   echo "   Ralph needs a task description to work on." >&2
   echo "" >&2
@@ -135,20 +135,21 @@ if [[ -z "$PROMPT" ]]; then
 fi
 
 # --- Passphrase generation for completion promise ---
-# Generates RALPH- prefix + 48 hex chars from /dev/urandom (TRUE OS randomness).
+# v3: Epoch hex (8 chars) provides structural temporal uniqueness + debuggability.
+# Random hex (40 chars) from /dev/urandom provides probabilistic uniqueness (2^160).
 # RALPH- prefix prevents false matches against hex strings in code output.
-# Previous WORD NNNN format deprecated: LLMs have token bias causing repeated words.
+# v2 was RALPH-hex48. v1 was WORD NNNN (deprecated session 15, LLM bias).
 generate_passphrase() {
-  echo "RALPH-$(head -c 24 /dev/urandom | xxd -p | tr -d '\n')"
+  echo "RALPH-$(printf '%08x' "$(date +%s)")-$(head -c 20 /dev/urandom | xxd -p | tr -d '\n')"
 }
 
 # Generate passphrase and build completion promise
 PASSPHRASE=$(generate_passphrase)
 if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
-  # User provided a promise — prepend passphrase with :: separator
+  # User provided a promise -- prepend passphrase with :: separator
   COMPLETION_PROMISE="${PASSPHRASE}::${COMPLETION_PROMISE}"
 else
-  # No user promise — use passphrase alone as the completion signal
+  # No user promise -- use passphrase alone as the completion signal
   COMPLETION_PROMISE="$PASSPHRASE"
 fi
 
@@ -171,7 +172,7 @@ RALPH_STATE_FILE=".claude/ralph-loop.${SESSION_ID}.local.md"
 
 # Verify session ID is non-empty (defensive)
 if [[ -z "$SESSION_ID" ]]; then
-  echo "❌ Error: Failed to generate session ID" >&2
+  echo "[ERROR] Error: Failed to generate session ID" >&2
   exit 1
 fi
 
@@ -198,7 +199,7 @@ EOF
 
 # Output setup message
 cat <<EOF
-🔄 Ralph loop activated in this session!
+[LOOP] Ralph loop activated in this session!
 
 Iteration: 1
 Max iterations: $(if [[ $MAX_ITERATIONS -gt 0 ]]; then echo $MAX_ITERATIONS; else echo "unlimited"; fi)
@@ -212,10 +213,10 @@ self-referential loop where you iteratively improve on the same task.
 Session ID: $SESSION_ID
 To monitor: head -10 $RALPH_STATE_FILE
 
-⚠️  WARNING: This loop continues until the passphrase is output or
+[WARN]  WARNING: This loop continues until the passphrase is output or
     --max-iterations is reached.
 
-🔄
+[LOOP]
 EOF
 
 # Output the initial prompt if provided
