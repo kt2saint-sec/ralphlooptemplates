@@ -120,7 +120,7 @@ RULE: When modifying role isolation rules, update ALL template versions simultan
 - TESTER clean room: receives ONLY the task description. Does NOT receive Challenger objections or Proxy decisions.
 - HTML diagrams (`docs/*.html`) are NOT auto-updated when template text changes. They must be manually updated.
 - Bash variable expansion is single-pass: `"$VAR"` does NOT re-evaluate `$()`, `` `cmd` ``, or `$var` inside the variable's value. The stop hook and setup script are safe from command injection via prompt text.
-- Multiple state files from abandoned loops cause glob fallback to pick the wrong file (wrong passphrase). The setup script has NO guard against this — it creates a new file unconditionally.
+- Multiple state files from abandoned loops cause glob fallback to pick the wrong file (wrong passphrase). The setup script has NO guard against this — it creates a new file unconditionally. The stale guard (120s threshold) now prevents adoption of orphaned files from different sessions, but `/cancel-anvil` is still recommended before starting a new loop.
 - `scripts/hooks.json` references `${CLAUDE_PLUGIN_ROOT}/scripts/stop-hook-anvil.sh`. Verify this path matches the actual script location.
-- The stop hook uses `set -euo pipefail` (line 8) which contradicts the `-e` incompatibility documented above. Should be `set -uo pipefail`.
+- The stop hook uses `set -uo pipefail` (line 8). Previously used `set -euo pipefail` which was incompatible; fixed in v4.2.
 - `.txt` prompt files (`anvil-prompt-*.txt`) accumulate in the project root. They are gitignored but not auto-cleaned. Future: add `--source-file` flag to setup script for auto-cleanup on loop completion.

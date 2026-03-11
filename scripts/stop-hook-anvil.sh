@@ -5,7 +5,7 @@
 # Feeds Claude's output back as input to continue the loop
 # Supports per-iteration learnings capture and completion consolidation
 
-set -euo pipefail
+set -uo pipefail
 
 # Fast exit: check for state files BEFORE reading stdin to minimize
 # latency when no anvil loop is active (Bug 5 fix)
@@ -66,19 +66,21 @@ if [[ -z "$ANVIL_STATE_FILE" ]]; then
   unset _found_files
 
   # Guard against cross-session hijacking: if the state file belongs to a
-  # different session and is older than 1 hour, skip it instead of adopting it
+  # different session, only adopt it if it was created very recently (< 120s),
+  # which indicates it's from the setup script's first iteration using uuidgen.
+  # Files older than 120s from different sessions are orphaned and must be skipped.
   if [[ -n "$HOOK_SESSION_ID" ]] && [[ -n "$ANVIL_STATE_FILE" ]] && [[ -f "$ANVIL_STATE_FILE" ]]; then
     FILE_SID=$(sed -n 's/^session_id: "\(.*\)"/\1/p' "$ANVIL_STATE_FILE")
     FILE_STARTED=$(sed -n 's/^started_at: "\(.*\)"/\1/p' "$ANVIL_STATE_FILE")
-    if [[ -n "$FILE_SID" ]] && [[ "$FILE_SID" != "$HOOK_SESSION_ID" ]]; then
-      if [[ -n "$FILE_STARTED" ]]; then
-        FILE_AGE=$(( $(date +%s) - $(date -d "$FILE_STARTED" +%s 2>/dev/null || echo 0) ))
-        if [[ $FILE_AGE -gt 3600 ]]; then
-          echo "[WARN] Stale anvil loop state file from a different session (age: ${FILE_AGE}s). Skipping." >&2
-          echo "   File: $ANVIL_STATE_FILE" >&2
-          echo "   Run /cancel-anvil to clean up, or /anvil-loop to start fresh." >&2
-          exit 0
-        fi
+    # If session_id is missing or doesn't match, check age before adopting
+    if [[ -z "$FILE_SID" ]] || [[ "$FILE_SID" != "$HOOK_SESSION_ID" ]]; then
+      FILE_AGE_S=$(date -d "$FILE_STARTED" +%s 2>/dev/null || echo 0)
+      FILE_AGE=$(( $(date +%s) - FILE_AGE_S ))
+      if [[ $FILE_AGE -gt 120 ]]; then
+        echo "[WARN] Orphaned anvil loop state file from a different session (age: ${FILE_AGE}s). Skipping." >&2
+        echo "   File: $ANVIL_STATE_FILE" >&2
+        echo "   Run /cancel-anvil to clean up, or /anvil-loop to start fresh." >&2
+        exit 0
       fi
     fi
   fi
