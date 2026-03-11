@@ -4,11 +4,11 @@
 
 Ralph Loop turns Claude Code into a self-correcting build system: a stop hook intercepts every session exit, feeds the same prompt back, and Claude sees its own previous work in files — iterating until the task is genuinely complete.
 
-Built across 24 development sessions, each using the Ralph Loop itself to iteratively build, test, and verify. 91 decisions. 137 tests. 5 adversarial roles.
+Built across 24 development sessions, each using the Ralph Loop itself to iteratively build, test, and verify. 91 decisions. 137 tests. 6 adversarial roles.
 
-![Overview — 5 roles, 137 tests, 24 sessions, 91 decisions](docs/overview.png)
+![Overview — 6 roles, 137 tests, 24 sessions, 91 decisions](docs/overview.png)
 
-![5 Adversarial Roles — Challenger, Tester, Builder, Proxy, Researcher](docs/roles.png)
+![6 Adversarial Roles — Evaluator, Challenger, Tester, Builder, Proxy, Researcher](docs/roles.png)
 
 ![Stop Hook Fix — Plugin hooks.json silently drops output, settings.json doesn't](docs/hook-fix.png)
 
@@ -57,17 +57,39 @@ TESTER is independent. Creates tests in sandbox FIRST, so BUILDER cannot code to
 BUILDER develops code in sandbox until all tests pass. Must be able to also explain in natural language why it works.
 ### The Roles
 
-The `/ralphtemplate` and `/ralphtemplatetest` commands generate orchestrator prompts with adversarial roles that prevent the common failure modes of AI coding:
+The `/ralphtemptest` command (recommended) generates modular orchestrator prompts with 6 adversarial roles that prevent the common failure modes of AI coding. The EVALUATOR dynamically scales challenge intensity based on task complexity:
 
-| Role                              | Purpose                                                                                                                                   | Activates                                          |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| **Challenger** (Boris Antagonist) | Raises 5+ ambiguities, proposes 2-3 approaches, reviews after every milestone. Can force redesign.                                        | Before any code is written, after every major step |
-| **Builder** (Primary Implementer) | Writes code, runs tests, iterates. Logs status, root cause, fix, result per iteration.                                                    | Phase 2 (after Challenger/Proxy negotiate)         |
-| **Proxy** (Human Stand-in)        | Answers Challenger's questions by researching codebase and docs. Never says "ask the user." Flags low-confidence decisions as REVIEWABLE. | When Challenger has questions                      |
-| **Researcher** (Fact-Finder)      | Independent knowledge agent. Subagents + web search + MCP servers. Structured reports with sources and confidence.                        | When Builder or Proxy is below 75% certainty       |
-| **Tester** (Test-First Gate)      | Creates tests BEFORE Builder writes code. Sandbox on dedicated NVMe. Builder can't see test code. Fail = passphrase revoked.              | Phase 1.5 (`/ralphtemplatetest` only)              |
+| Role                               | Purpose                                                                                                                                   | Activates                                          |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| **Evaluator** (Complexity Gate)    | Assesses task complexity, assigns tier (LIGHT/STANDARD/THOROUGH/RIGOROUS/MAXIMAL). Governs how hard Challenger and Tester push. Can only escalate, never downgrade. | Phase 0 (first, before all others)                 |
+| **Challenger** (Boris Antagonist)  | Raises 3-12+ objections (scaled by Evaluator tier), proposes approaches, reviews after every milestone. Can force redesign.                | Phase 1 (after Evaluator)                          |
+| **Tester** (Test-First Gate)       | Creates 3-20+ behavior tests (scaled by tier) BEFORE Builder writes code. Sandbox on dedicated NVMe. Builder can't see test code. Fail = passphrase revoked. | Phase 1.5 (after Challenger, before Builder)       |
+| **Builder** (Primary Implementer)  | Writes code against Tester's suite. Logs status, root cause, fix, result per iteration. Paces work within Evaluator's iteration budget.   | Phase 2 (after tests exist)                        |
+| **Proxy** (Human Stand-in)         | Answers Challenger's questions by researching codebase and docs. Never says "ask the user." Flags low-confidence decisions as REVIEWABLE.  | When Challenger has questions                      |
+| **Researcher** (Fact-Finder)       | Independent knowledge agent. Subagents + web search + MCP servers. Structured reports with sources and confidence.                         | When Builder or Proxy is below 75% certainty       |
 
-**Why adversarial roles?** Most AI coding failures happen because requirements were ambiguous, not because the code was wrong. The Challenger catches these before a single line is written. The Proxy keeps the loop running without human intervention. The Researcher prevents guessing.
+### Modular Prompt Development
+
+The template system generates **plain-text orchestrator prompts** — no markdown, no backticks, no formatting that could confuse Claude. Each role's instructions are self-contained text blocks that can be composed modularly:
+
+- `/ralphtemptest` — Full 6-role system (EVALUATOR + Tester + test preservation + DOCUMENTOR)
+- `/ralphtemplatetest-v2` — Same as above (alias)
+- `/ralphtemplate-v2` — 5 roles (no Tester) with EVALUATOR + DOCUMENTOR
+- `/ralphtemplate` — Classic 4 roles (Builder, Challenger, Proxy, Researcher)
+- `/ralphtemplatetest` — Classic 5 roles (adds Tester, no EVALUATOR)
+- Add `TESTINGOFF` to any test variant to strip Tester role and generate without test-first logic
+
+The EVALUATOR's complexity tiers dynamically scale the entire system:
+
+| Tier | Challenger Objections | Tester Tests | Iteration Budget |
+|------|----------------------|--------------|-----------------|
+| LIGHT | 3+ | 3-5 | 5 |
+| STANDARD | 5+ | 5-10 | 10 |
+| THOROUGH | 7+ (per-spec review) | 10-15 | 15 |
+| RIGOROUS | 10+ (blocks until resolved) | 15-20 | 20 |
+| MAXIMAL | 12+ (proof demanded) | 20+ (security tests) | 30 |
+
+**Why adversarial roles?** Most AI coding failures happen because requirements were ambiguous, not because the code was wrong. The Evaluator scales challenge intensity to match task complexity — a simple CLI tool gets LIGHT review, a production auth system gets MAXIMAL. The Challenger catches ambiguities before code is written. The Tester defines expected behavior before implementation. The Proxy keeps the loop running without human intervention. The Researcher prevents guessing.
 
 ### The Passphrase
 
@@ -147,33 +169,37 @@ For the full setup guide with manual installation steps, configuration details, 
   --max-iterations 20 --completion-promise "LOAD TESTS PASSING"
 ```
 
-### Advanced: Full orchestrated build (4 roles)
+### Advanced: Full 6-role orchestrated build (recommended)
 
 ```
-/ralphtemplate Build a complete user authentication system with JWT,
+/ralphtemptest Build a complete user authentication system with JWT,
   refresh tokens, password reset, and email verification
 
+# EVALUATOR assesses complexity → assigns RIGOROUS tier
+# Challenger raises 10+ objections → Proxy answers
+# Tester creates 15-20 behavior tests in sandbox BEFORE coding
+# Builder implements against tests, paced by iteration budget
+# DOCUMENTOR saves raw prompt + summary to .txt files
+#
 # Copy the generated prompt, then:
 /ralph-loop "[paste prompt]" \
-  --max-iterations 30 --completion-promise "AUTH SYSTEM COMPLETE"
+  --max-iterations 20 --completion-promise "PASSPHRASE"
 ```
 
-### Advanced: Test-first orchestrated build (5 roles)
+### Advanced: Without test-first (5 roles)
 
 ```
-/ralphtemplatetest Build a REST API with auth, pagination, and rate limiting
+/ralphtemptest Build a REST API with pagination TESTINGOFF
 
-# The Tester creates tests BEFORE the Builder writes code
-# Tests run in a sandbox directory, isolated from the project
-# Copy the generated prompt, then:
-/ralph-loop "[paste prompt]" \
-  --max-iterations 30 --completion-promise "API COMPLETE"
+# Same EVALUATOR + dynamic challenge, but no Tester or sandbox
 ```
 
-Add `TESTINGOFF` to the arguments to disable the Tester role and generate a 4-role prompt instead:
+### Classic: 4-role build (no Evaluator, no Tester)
 
 ```
-/ralphtemplatetest Build a simple CLI tool TESTINGOFF
+/ralphtemplate Build a simple CLI tool
+
+# Builder, Challenger, Proxy, Researcher — fixed 5 objections
 ```
 
 ### Post-completion review
@@ -201,37 +227,40 @@ EOF
 
 ---
 
-## The `/ralphtemplatetest` Command
+## The `/ralphtemptest` Command (Recommended)
 
-This is the 5-role variant that adds a **Tester** (Role 5) for test-first development. The full command file is included in this repo at [`commands/ralphtemplatetest.md`](commands/ralphtemplatetest.md).
+The full 6-role variant with **EVALUATOR** (dynamic complexity scaling), **Tester** (test-first), and **DOCUMENTOR** (auto-saves prompts). This is the recommended command for any non-trivial task. The full command file is at [`commands/ralphtemptest.md`](commands/ralphtemptest.md).
 
 ### What it generates
 
 A single plain-text prompt (zero markdown — intentional, prevents Claude from "breaking out" of the instruction space) with:
 
-- **Role 1 (Builder)**: Implements iteratively against the Tester's suite. Below 75% certainty = delegates to Researcher.
-- **Role 2 (Challenger)**: Identifies 5+ ambiguities before any code. Reviews after every milestone. Can force redesign.
+- **Role 0 (Evaluator)**: Assesses task complexity across 5 dimensions (spec count, scope, risk, dependencies, ambiguity). Assigns a tier that governs ALL other roles' intensity. Can only escalate tier, never downgrade.
+- **Role 1 (Builder)**: Implements iteratively against the Tester's suite, paced by Evaluator's iteration budget. Below 75% certainty = delegates to Researcher.
+- **Role 2 (Challenger)**: Raises objections scaled by tier (3 for LIGHT, 12+ for MAXIMAL). Per-spec review for THOROUGH+. Reviews after every milestone. Can force redesign.
 - **Role 3 (Proxy)**: Answers questions by researching codebase. Never asks the user. Below 75% certainty = delegates to Researcher.
 - **Role 4 (Researcher)**: Independent knowledge agent. Subagents + web search + MCP servers. Structured reports with sources and confidence levels.
-- **Role 5 (Tester)**: Creates tests BEFORE Builder writes code. Sandbox on dedicated storage. Tests verify behavior, not implementation. Fail on final run = passphrase revoked.
+- **Role 5 (Tester)**: Creates tests scaled by tier (3-5 for LIGHT, 20+ for MAXIMAL) BEFORE Builder writes code. Sandbox on dedicated NVMe. Tests verify behavior, not implementation. Fail on final run = passphrase revoked.
+- **DOCUMENTOR** (post-generation): Saves raw prompt to `.txt` file (enables `cat | /ralph-loop` piping) + haiku-generated summary with metadata.
 
 ### Execution flow
 
 ```
-Phase 1:     Challenger raises objections --> Proxy answers (Researcher consulted if uncertain)
-Phase 1.5:   Tester creates test suite in sandbox --> Challenger reviews edge case coverage
-Phase 2:     Builder implements against tests (cannot see test code first)
-Phase 3:     Builder runs sandbox tests --> Fix implementation (not tests) if failures
-Phase 4:     Results in plain language, REVIEWABLE decisions flagged
-Post:        Full test suite re-run --> Sandbox cleaned up
+Phase 0:     EVALUATOR assesses complexity --> assigns tier (LIGHT to MAXIMAL)
+Phase 1:     Challenger raises tier-scaled objections --> Proxy answers (Researcher if uncertain)
+Phase 1.5:   Tester creates tier-scaled test suite in sandbox --> copies to TESTS/before/
+Phase 2:     Builder implements against tests --> Evaluator reassesses at milestones (tier only goes UP)
+Phase 3:     Builder runs sandbox tests --> Fix implementation (not tests) --> copies to TESTS/after/
+Phase 4:     Results in plain language, REVIEWABLE decisions flagged, CHANGES.txt written
+Post:        Full test suite re-run --> Sandbox cleaned up --> Prompt saved to .txt files
 ```
 
-### How to create the plugin
+### How to install
 
-1. Copy `commands/ralphtemplatetest.md` to `~/.claude/commands/`:
+1. Copy all commands to `~/.claude/commands/`:
 
 ```bash
-cp commands/ralphtemplatetest.md ~/.claude/commands/
+cp commands/*.md ~/.claude/commands/
 ```
 
 2. Start a new Claude Code session.
@@ -239,28 +268,41 @@ cp commands/ralphtemplatetest.md ~/.claude/commands/
 3. Use it:
 
 ```bash
-/ralphtemplatetest Build a user dashboard with real-time updates
+/ralphtemptest Build a user dashboard with real-time updates
 ```
 
 4. The command will:
+   - Run EVALUATOR to assess complexity (e.g., THOROUGH tier)
    - Generate a passphrase via `/dev/urandom` (Bash tool)
-   - Output a complete plain-text orchestrator prompt
+   - Output a complete plain-text orchestrator prompt with tier-scaled role instructions
+   - Save the raw prompt and summary to `.txt` files (DOCUMENTOR)
    - Show the passphrase separately for `--completion-promise`
    - Tell you how to feed it into `/ralph-loop`
 
 ### TESTINGOFF toggle
 
-Add `TESTINGOFF` (case-sensitive) anywhere in your arguments to strip all testing sections and generate a 4-role prompt identical to `/ralphtemplate`:
+Add `TESTINGOFF` (case-sensitive) anywhere in your arguments to strip the Tester role and generate a 5-role prompt (EVALUATOR + Builder + Challenger + Proxy + Researcher):
 
 ```bash
-/ralphtemplatetest Quick refactoring task TESTINGOFF
+/ralphtemptest Quick refactoring task TESTINGOFF
+```
+
+### Test Preservation
+
+When Tester is active, test files are preserved across the build:
+
+```
+TESTS/ralph-YYYYMMDD-HHMM/
+├── before/     # Tests as originally written (before implementation)
+├── after/      # Tests after any corrections during implementation
+└── CHANGES.txt # What changed, why, and whether it was a correction or addition
 ```
 
 ---
 
 ## v3 Fixes (Hybrid Architecture)
 
-v3 replaced the marketplace plugin with local commands + a `settings.json` Stop hook. This permanently solves every known issue with the plugin approach.
+v3 replaced the marketplace plugin with local commands + a `settings.json` Stop hook, and added the EVALUATOR for dynamic complexity scaling. This permanently solves every known issue with the plugin approach.
 
 ### Why the plugin was broken
 
@@ -285,6 +327,9 @@ The original Ralph Loop marketplace plugin had 6 critical issues:
 - **Frontmatter-safe extraction** — Only skips the first two `---` lines (original skips ALL `---`, corrupting prompts)
 - **Learnings consolidation** — On completion, extracts durable patterns into permanent project docs
 - **Recovery tooling** — `RESTORE/restore-hybrid.sh` checks and fixes all 6 configuration categories
+- **EVALUATOR complexity scaling** — Dynamic tier assignment (LIGHT to MAXIMAL) governs Challenger objection count, Tester test count, and iteration budget
+- **DOCUMENTOR auto-save** — Raw prompt to `.txt` + haiku summary with metadata, enables `cat | /ralph-loop` piping
+- **Test preservation** — Before/after snapshots in `TESTS/ralph-TIMESTAMP/` with `CHANGES.txt` documenting test evolution
 - **137 tests across 10 suites** — Passphrase detection (v1+v2), multi-terminal, lifecycle, hook input validation, migration, session 20 fixes
 
 For the complete v3 setup guide with all configuration details, see [ralph-loop-v3.md](ralph-loop-v3.md).
@@ -323,13 +368,14 @@ Sanitized templates are in `templates/` — copy them to `~/.claude/` and custom
 ```
 ralphlooptemplates/
 ├── README.md                              # This file
+├── CHANGELOG.md                           # Version history and session changes
 ├── ralph-loop-v3.md                       # Complete v3 setup guide (all fixes, configs)
 ├── CLAUDE.md                              # Project-specific Claude Code instructions
 ├── commands/                              # Slash commands (copy to ~/.claude/commands/)
-│   ├── ralphtemplate.md                   # Generate 4-role orchestrator prompts
-│   ├── ralphtemplatetest.md               # Generate 5-role prompts (adds Tester)
-│   ├── ralphtemplate-v2.md                # v2: adds EVALUATOR, dynamic iterations, DOCUMENTOR
-│   ├── ralphtemplatetest-v2.md            # v2: EVALUATOR + Tester + DOCUMENTOR + test preservation
+│   ├── ralphtemptest.md                   # 6-role: EVALUATOR + Tester + DOCUMENTOR (recommended)
+│   ├── ralphtemplate-v2.md                # 5-role: EVALUATOR + DOCUMENTOR (no Tester)
+│   ├── ralphtemplatetest.md               # 5-role: Tester (no EVALUATOR, classic)
+│   ├── ralphtemplate.md                   # 4-role: classic orchestrator prompts
 │   ├── boris-challenge.md                 # Challenge requirements before coding
 │   ├── ralph-loop.md                      # Self-iterating development loop
 │   ├── ralph-loop-safe.md                 # Safe loop with git checks
@@ -362,20 +408,21 @@ ralphlooptemplates/
 
 ## Commands Reference
 
-| Command                 | Description                                                              |
-| ----------------------- | ------------------------------------------------------------------------ |
-| `/ralph-loop`           | Start a self-iterating development loop                                  |
-| `/ralph-loop-safe`      | Same with git safety checks (feature branch required, clean working dir) |
-| `/cancel-ralph`         | Cancel active loop (session-scoped, handles multi-terminal)              |
-| `/ralphtemplate`        | Generate 4-role orchestrator prompt                                      |
-| `/ralphtemplatetest`    | Generate 5-role prompt with test-first Tester                            |
-| `/ralphtemplate-v2`     | v2: adds EVALUATOR complexity tiers, dynamic iterations, DOCUMENTOR      |
-| `/ralphtemplatetest-v2` | v2: EVALUATOR + Tester + DOCUMENTOR + test preservation                  |
-| `/boris-challenge`      | Challenge requirements before coding (identify 5+ ambiguities)           |
-| `/grill-me`             | Staff engineer code review (scores 1-5, avg >= 4 required)               |
-| `/prove-it`             | Demand evidence that changes work (natural language proof)               |
-| `/knowing-everything`   | Retrospective and knowledge capture                                      |
-| `/scrap-and-redo`       | Rebuild with full accumulated context                                    |
+| Command                 | Roles | Description                                                              |
+| ----------------------- | ----- | ------------------------------------------------------------------------ |
+| `/ralphtemptest`        | 6     | **Recommended.** EVALUATOR + Tester + DOCUMENTOR + test preservation     |
+| `/ralphtemplatetest-v2` | 6     | Same as `/ralphtemptest` (alias)                                         |
+| `/ralphtemplate-v2`     | 5     | EVALUATOR + DOCUMENTOR, no Tester                                        |
+| `/ralphtemplatetest`    | 5     | Classic: Tester but no EVALUATOR (fixed 5 objections)                    |
+| `/ralphtemplate`        | 4     | Classic: Builder, Challenger, Proxy, Researcher                          |
+| `/ralph-loop`           | —     | Start a self-iterating development loop                                  |
+| `/ralph-loop-safe`      | —     | Same with git safety checks (feature branch required, clean working dir) |
+| `/cancel-ralph`         | —     | Cancel active loop (session-scoped, handles multi-terminal)              |
+| `/boris-challenge`      | —     | Challenge requirements before coding (identify 5+ ambiguities)           |
+| `/grill-me`             | —     | Staff engineer code review (scores 1-5, avg >= 4 required)               |
+| `/prove-it`             | —     | Demand evidence that changes work (natural language proof)               |
+| `/knowing-everything`   | —     | Retrospective and knowledge capture                                      |
+| `/scrap-and-redo`       | —     | Rebuild with full accumulated context                                    |
 
 ---
 
