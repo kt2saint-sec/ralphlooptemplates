@@ -17,6 +17,7 @@ Created by **Karl Toussaint** (kt2saint / RebelSTS).
 - [Adaptive Complexity Tiers](#adaptive-complexity-tiers)
 - [The Passphrase System](#the-passphrase-system)
 - [Quick Start](#quick-start)
+- [Performance: tmpfs and RAM-Backed Operation](#performance-tmpfs-and-ram-backed-operation)
 - [Commands](#commands)
 - [File Structure](#file-structure)
 - [Origin and Attribution](#origin-and-attribution)
@@ -310,6 +311,79 @@ Add to your `~/.claude/settings.json` (or `~/.claude-planB/settings.json` if usi
 
 ---
 
+## Performance: tmpfs and RAM-Backed Operation
+
+The Anvil Loop generates significant I/O — state file reads/writes every iteration, git operations, file creation, test execution. On long-running loops (15-30 iterations), this can cause:
+
+- **NVMe write amplification** — small repeated writes wear flash cells disproportionately
+- **I/O scheduler contention** — competing with OS, Docker, and other processes for disk bandwidth
+- **Latency spikes** — filesystem journaling + git operations can stall under heavy write load
+
+### Recommended: tmpfs workspace
+
+Mount a tmpfs (RAM-backed filesystem) for the loop workspace and sandbox:
+
+```bash
+# Create a tmpfs mount for Anvil workspaces (uses RAM, zero disk I/O)
+sudo mkdir -p /mnt/anvil-workspace
+sudo mount -t tmpfs -o size=4G tmpfs /mnt/anvil-workspace
+
+# Make it persistent across reboots (add to /etc/fstab):
+echo 'tmpfs /mnt/anvil-workspace tmpfs size=4G,mode=1777 0 0' | sudo tee -a /etc/fstab
+```
+
+Then clone/work inside the tmpfs mount:
+
+```bash
+cd /mnt/anvil-workspace
+git clone /path/to/your-project .   # or git clone <remote-url>
+# Run your Anvil loops here — all I/O happens in RAM
+```
+
+### Why this prevents crashes
+
+| Without tmpfs | With tmpfs |
+|--------------|-----------|
+| Every iteration writes to NVMe (state file, git objects, test output) | All writes go to RAM — microsecond latency |
+| 20 iterations × ~50 file ops = 1000+ disk writes | Zero disk writes during loop execution |
+| I/O scheduler competes with system processes | No disk contention — RAM is independent |
+| Git fsync on every commit adds latency | Git operations complete instantly |
+| Long loops risk I/O timeout under system load | RAM never times out |
+
+### Syncing results to persistent storage
+
+tmpfs is volatile — contents are lost on reboot or unmount. After the loop completes, sync results to disk:
+
+```bash
+# After loop completion, copy results to persistent storage
+rsync -av /mnt/anvil-workspace/your-project/ /path/to/persistent/your-project/
+
+# Or use git: commit and push from tmpfs, then pull on persistent disk
+cd /mnt/anvil-workspace/your-project
+git push origin main
+```
+
+### Alternative: fast NVMe with dedicated partition
+
+If you have a fast NVMe (e.g., WD SN850X, Samsung 990 Pro) with spare capacity, you can dedicate a partition or directory instead of tmpfs. This gives persistence without syncing, at the cost of some I/O overhead:
+
+```bash
+# Dedicated fast storage path (adjust to your NVMe mount point)
+mkdir -p /mnt/your-nvme/anvil-workspace
+# Use this as your working directory for loops
+```
+
+### Sandbox location
+
+The Tester's sandbox defaults to `${TMPDIR:-/tmp}/anvil-test-sandbox-*`. On most Linux systems, `/tmp` is already tmpfs. If not, set `TMPDIR` to your tmpfs mount:
+
+```bash
+export TMPDIR=/mnt/anvil-workspace/tmp
+mkdir -p "$TMPDIR"
+```
+
+---
+
 ## Commands
 
 | Command | What It Does |
@@ -318,11 +392,8 @@ Add to your `~/.claude/settings.json` (or `~/.claude-planB/settings.json` if usi
 | `/anvil-loop` | Start a self-iterating development loop with the generated prompt |
 | `/anvil-loop-safe` | Same as above but requires feature branch, blocks destructive git ops |
 | `/cancel-anvil` | Safely cancel an active loop (removes state files only) |
-| `/boris-challenge` | Challenge requirements before coding — identify ambiguities first |
-| `/grill-me` | Staff engineer code review — challenge every design choice |
-| `/prove-it` | Demand natural-language evidence that changes work |
-| `/knowing-everything` | Retrospective — capture institutional memory, update docs |
-| `/scrap-and-redo` | Rebuild current approach with accumulated context |
+| `/anvil-loop-help` | Full documentation of loop behavior, flags, and troubleshooting |
+| `/boris-challenge` | Challenge requirements before coding — identify ambiguities first (Challenger role standalone) |
 
 ---
 
@@ -337,11 +408,7 @@ anvil-method/
 │   ├── anvil-loop-safe.md       # Safe loop (branch protection)
 │   ├── anvil-loop-help.md       # Help documentation
 │   ├── cancel-anvil.md          # Loop cancellation
-│   ├── boris-challenge.md       # Pre-coding challenge
-│   ├── prove-it.md              # Evidence demand
-│   ├── grill-me.md              # Code review
-│   ├── knowing-everything.md    # Retrospective
-│   └── scrap-and-redo.md        # Clean rebuild
+│   └── boris-challenge.md       # Pre-coding challenge (Challenger role)
 ├── scripts/
 │   ├── stop-hook-anvil.sh       # Core loop engine (stop hook)
 │   ├── setup-anvil-loop.sh      # Loop initialization

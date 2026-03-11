@@ -1,29 +1,39 @@
-# Claude Code temp files
+# Claude Code internal state
 .claude/
 *.local.md
 
 # OS files
 .DS_Store
 Thumbs.db
+._*
+.Spotlight-V100
+.Trashes
+desktop.ini
 
 # Editor files
 *.swp
 *.swo
 *~
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
 
 # Lock files from flock
 *.lock
 
-# DOCUMENTOR output files
+# Anvil template output files (generated per-session, not source)
 anvil-prompt-*.txt
 
-# Session-specific research docs
+# Session-specific research docs (timestamped)
 2026-*.md
+2027-*.md
+2028-*.md
 
 # Playwright MCP artifacts
 .playwright-mcp/
 
-# TESTS directory (session-specific test artifacts)
+# Test sandbox artifacts (session-specific, preserved locally)
 TESTS/
 
 # Sanitization reference copies
@@ -31,3 +41,20 @@ SANITIZED/
 
 # Screenshots (bloat git history)
 docs/screenshot-*.png
+
+# Logs
+*.log
+
+# Node (if Claude Code plugins ever use it)
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Backup files
+*.bak
+*.orig
+*.backup

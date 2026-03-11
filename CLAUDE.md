@@ -73,11 +73,8 @@ Stop-specific fields:
 | `/anvil-loop` | Start a self-iterating development loop |
 | `/anvil-loop-safe` | Same with git safety checks (feature branch required) |
 | `/cancel-anvil` | Cancel an active loop |
-| `/boris-challenge` | Challenge requirements before coding |
-| `/grill-me` | Staff engineer code review |
-| `/prove-it` | Demand evidence that changes work |
-| `/knowing-everything` | Retrospective and knowledge capture |
-| `/scrap-and-redo` | Rebuild with full accumulated context |
+| `/anvil-loop-help` | Full documentation of loop behavior and flags |
+| `/boris-challenge` | Challenge requirements before coding (Challenger role standalone) |
 
 Add `TESTINGOFF` to `/anviltemplate` arguments for a 5-role prompt without the Tester.
 
@@ -124,6 +121,6 @@ RULE: When modifying role isolation rules, update ALL template versions simultan
 - HTML diagrams (`docs/*.html`) are NOT auto-updated when template text changes. They must be manually updated.
 - Bash variable expansion is single-pass: `"$VAR"` does NOT re-evaluate `$()`, `` `cmd` ``, or `$var` inside the variable's value. The stop hook and setup script are safe from command injection via prompt text.
 - Multiple state files from abandoned loops cause glob fallback to pick the wrong file (wrong passphrase). The setup script has NO guard against this — it creates a new file unconditionally.
-- `scripts/hooks.json` references `${CLAUDE_PLUGIN_ROOT}/hooks/stop-hook-anvil.sh` but the script is at `scripts/stop-hook-anvil.sh`. Plugin hook path is BROKEN.
+- `scripts/hooks.json` references `${CLAUDE_PLUGIN_ROOT}/scripts/stop-hook-anvil.sh`. Verify this path matches the actual script location.
 - The stop hook uses `set -euo pipefail` (line 8) which contradicts the `-e` incompatibility documented above. Should be `set -uo pipefail`.
 - `.txt` prompt files (`anvil-prompt-*.txt`) accumulate in the project root. They are gitignored but not auto-cleaned. Future: add `--source-file` flag to setup script for auto-cleanup on loop completion.
