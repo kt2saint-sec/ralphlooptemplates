@@ -1,18 +1,18 @@
 #!/bin/bash
 
-# Ralph Loop Stop Hook
-# Prevents session exit when a ralph-loop is active
+# Anvil Loop Stop Hook
+# Prevents session exit when a anvil-loop is active
 # Feeds Claude's output back as input to continue the loop
 # Supports per-iteration learnings capture and completion consolidation
 
 set -euo pipefail
 
 # Fast exit: check for state files BEFORE reading stdin to minimize
-# latency when no ralph loop is active (Bug 5 fix)
-# Two patterns: ralph-loop.local.md (original plugin) and ralph-loop.*.local.md (our version)
-# NOTE: ralph-loop.loca[l].md uses a char class so nullglob applies (literal paths bypass nullglob)
+# latency when no anvil loop is active (Bug 5 fix)
+# Two patterns: anvil-loop.local.md (original plugin) and anvil-loop.*.local.md (our version)
+# NOTE: anvil-loop.loca[l].md uses a char class so nullglob applies (literal paths bypass nullglob)
 shopt -s nullglob
-_state_files=(.claude/ralph-loop.loca[l].md .claude/ralph-loop.*.local.md)
+_state_files=(.claude/anvil-loop.loca[l].md .claude/anvil-loop.*.local.md)
 shopt -u nullglob
 if [[ ${#_state_files[@]} -eq 0 ]]; then
   exit 0
@@ -23,15 +23,15 @@ unset _state_files
 HOOK_INPUT=$(cat)
 
 # DEBUG: Dump raw hook JSON for live field verification (remove after confirming fields)
-# Uncomment next 2 lines, sync cache, start NEW session, run /ralph-loop, inspect output
-# echo "--- $(date -u +%Y-%m-%dT%H:%M:%SZ) ---" >> /tmp/ralph-hook-debug.json
-# echo "$HOOK_INPUT" >> /tmp/ralph-hook-debug.json
+# Uncomment next 2 lines, sync cache, start NEW session, run /anvil-loop, inspect output
+# echo "--- $(date -u +%Y-%m-%dT%H:%M:%SZ) ---" >> /tmp/anvil-hook-debug.json
+# echo "$HOOK_INPUT" >> /tmp/anvil-hook-debug.json
 
 # Extract fields from hook input JSON
 # session_id: definitive session identifier (replaces ls -t heuristic for multi-terminal)
 # last_assistant_message: Claude's final response text (replaces transcript parsing)
 # stop_hook_active: true when continuing from a prior Stop hook block
-# NOTE on stop_hook_active: intentionally NOT used as an exit guard because Ralph Loop
+# NOTE on stop_hook_active: intentionally NOT used as an exit guard because Anvil Loop
 # works by repeatedly blocking stop events. On iteration 2+, stop_hook_active is always
 # true -- that's expected behavior. Using it as an exit guard would kill the loop.
 # RESOLVED: Confirmed correct. Fallback paths handle any future semantic changes.
@@ -43,15 +43,15 @@ TRANSCRIPT_PATH=$(echo "$HOOK_INPUT" | jq -r '.transcript_path // empty')
 # Primary: direct lookup by hook session_id (O(1), multi-terminal safe)
 # Fallback: glob + ls -t (handles first iteration when setup used uuidgen)
 # On fallback, rename file to hook session_id for O(1) on subsequent iterations.
-RALPH_STATE_FILE=""
+ANVIL_STATE_FILE=""
 
-if [[ -n "$HOOK_SESSION_ID" ]] && [[ -f ".claude/ralph-loop.${HOOK_SESSION_ID}.local.md" ]]; then
-  RALPH_STATE_FILE=".claude/ralph-loop.${HOOK_SESSION_ID}.local.md"
+if [[ -n "$HOOK_SESSION_ID" ]] && [[ -f ".claude/anvil-loop.${HOOK_SESSION_ID}.local.md" ]]; then
+  ANVIL_STATE_FILE=".claude/anvil-loop.${HOOK_SESSION_ID}.local.md"
 fi
 
-if [[ -z "$RALPH_STATE_FILE" ]]; then
+if [[ -z "$ANVIL_STATE_FILE" ]]; then
   shopt -s nullglob
-  _found_files=(.claude/ralph-loop.loca[l].md .claude/ralph-loop.*.local.md)
+  _found_files=(.claude/anvil-loop.loca[l].md .claude/anvil-loop.*.local.md)
   shopt -u nullglob
 
   if [[ ${#_found_files[@]} -eq 0 ]]; then
@@ -59,51 +59,69 @@ if [[ -z "$RALPH_STATE_FILE" ]]; then
   fi
 
   if [[ ${#_found_files[@]} -eq 1 ]]; then
-    RALPH_STATE_FILE="${_found_files[0]}"
+    ANVIL_STATE_FILE="${_found_files[0]}"
   else
-    RALPH_STATE_FILE=$(ls -t .claude/ralph-loop.loca[l].md .claude/ralph-loop.*.local.md 2>/dev/null | head -1)
+    ANVIL_STATE_FILE=$(ls -t .claude/anvil-loop.loca[l].md .claude/anvil-loop.*.local.md 2>/dev/null | head -1)
   fi
   unset _found_files
 
+  # Guard against cross-session hijacking: if the state file belongs to a
+  # different session and is older than 1 hour, skip it instead of adopting it
+  if [[ -n "$HOOK_SESSION_ID" ]] && [[ -n "$ANVIL_STATE_FILE" ]] && [[ -f "$ANVIL_STATE_FILE" ]]; then
+    FILE_SID=$(sed -n 's/^session_id: "\(.*\)"/\1/p' "$ANVIL_STATE_FILE")
+    FILE_STARTED=$(sed -n 's/^started_at: "\(.*\)"/\1/p' "$ANVIL_STATE_FILE")
+    if [[ -n "$FILE_SID" ]] && [[ "$FILE_SID" != "$HOOK_SESSION_ID" ]]; then
+      if [[ -n "$FILE_STARTED" ]]; then
+        FILE_AGE=$(( $(date +%s) - $(date -d "$FILE_STARTED" +%s 2>/dev/null || echo 0) ))
+        if [[ $FILE_AGE -gt 3600 ]]; then
+          echo "[WARN] Stale anvil loop state file from a different session (age: ${FILE_AGE}s). Skipping." >&2
+          echo "   File: $ANVIL_STATE_FILE" >&2
+          echo "   Run /cancel-anvil to clean up, or /anvil-loop to start fresh." >&2
+          exit 0
+        fi
+      fi
+    fi
+  fi
+
   # Rename to hook session_id for O(1) lookup on subsequent iterations
   # Uses flock to prevent race condition when multiple terminals hit glob fallback simultaneously
-  if [[ -n "$HOOK_SESSION_ID" ]] && [[ -n "$RALPH_STATE_FILE" ]] && [[ -f "$RALPH_STATE_FILE" ]]; then
-    NEW_STATE_FILE=".claude/ralph-loop.${HOOK_SESSION_ID}.local.md"
-    if [[ "$RALPH_STATE_FILE" != "$NEW_STATE_FILE" ]]; then
+  if [[ -n "$HOOK_SESSION_ID" ]] && [[ -n "$ANVIL_STATE_FILE" ]] && [[ -f "$ANVIL_STATE_FILE" ]]; then
+    NEW_STATE_FILE=".claude/anvil-loop.${HOOK_SESSION_ID}.local.md"
+    if [[ "$ANVIL_STATE_FILE" != "$NEW_STATE_FILE" ]]; then
       (
         flock -n 9 || exit 0  # Skip rename if another process holds the lock
         # Re-check file still exists after acquiring lock (another process may have renamed it)
-        if [[ -f "$RALPH_STATE_FILE" ]]; then
-          OLD_SID=$(basename "$RALPH_STATE_FILE" | sed -E 's/^ralph-loop\.(.+)\.local\.md$/\1/; t; s/^ralph-loop\.local\.md$//')
-          mv "$RALPH_STATE_FILE" "$NEW_STATE_FILE"
+        if [[ -f "$ANVIL_STATE_FILE" ]]; then
+          OLD_SID=$(basename "$ANVIL_STATE_FILE" | sed -E 's/^anvil-loop\.(.+)\.local\.md$/\1/; t; s/^anvil-loop\.local\.md$//')
+          mv "$ANVIL_STATE_FILE" "$NEW_STATE_FILE"
           # Update frontmatter session_id to match new filename
           TEMP_FILE="${NEW_STATE_FILE}.tmp.$$"
           sed "s/^session_id: \"${OLD_SID}\"/session_id: \"${HOOK_SESSION_ID}\"/" "$NEW_STATE_FILE" > "$TEMP_FILE"
           mv "$TEMP_FILE" "$NEW_STATE_FILE"
           # Rename learnings file if it exists
-          if [[ -f ".claude/ralph-learnings.${OLD_SID}.md" ]]; then
-            mv ".claude/ralph-learnings.${OLD_SID}.md" ".claude/ralph-learnings.${HOOK_SESSION_ID}.md"
+          if [[ -f ".claude/anvil-learnings.${OLD_SID}.md" ]]; then
+            mv ".claude/anvil-learnings.${OLD_SID}.md" ".claude/anvil-learnings.${HOOK_SESSION_ID}.md"
           fi
         fi
-      ) 9>.claude/ralph-loop.lock
-      # Update RALPH_STATE_FILE if rename succeeded
+      ) 9>.claude/anvil-loop.lock
+      # Update ANVIL_STATE_FILE if rename succeeded
       if [[ -f "$NEW_STATE_FILE" ]]; then
-        RALPH_STATE_FILE="$NEW_STATE_FILE"
+        ANVIL_STATE_FILE="$NEW_STATE_FILE"
       fi
     fi
   fi
 fi
 
-if [[ -z "$RALPH_STATE_FILE" ]] || [[ ! -f "$RALPH_STATE_FILE" ]]; then
+if [[ -z "$ANVIL_STATE_FILE" ]] || [[ ! -f "$ANVIL_STATE_FILE" ]]; then
   exit 0
 fi
 
 # Extract session ID from filename for learnings file
-SESSION_ID=$(basename "$RALPH_STATE_FILE" | sed -E 's/^ralph-loop\.(.+)\.local\.md$/\1/; t; s/^ralph-loop\.local\.md$//')
-LEARNINGS_FILE=".claude/ralph-learnings.${SESSION_ID}.md"
+SESSION_ID=$(basename "$ANVIL_STATE_FILE" | sed -E 's/^anvil-loop\.(.+)\.local\.md$/\1/; t; s/^anvil-loop\.local\.md$//')
+LEARNINGS_FILE=".claude/anvil-learnings.${SESSION_ID}.md"
 
 # Parse markdown frontmatter (YAML between ---) and extract values
-FRONTMATTER=$(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' "$RALPH_STATE_FILE")
+FRONTMATTER=$(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' "$ANVIL_STATE_FILE")
 ITERATION=$(echo "$FRONTMATTER" | grep '^iteration:' | sed 's/iteration: *//')
 MAX_ITERATIONS=$(echo "$FRONTMATTER" | grep '^max_iterations:' | sed 's/max_iterations: *//')
 # Extract completion_promise and strip surrounding quotes if present
@@ -116,24 +134,24 @@ fi
 
 # Validate numeric fields before arithmetic operations
 if [[ ! "$ITERATION" =~ ^[0-9]+$ ]]; then
-  echo "[WARN]  Ralph loop: State file corrupted" >&2
-  echo "   File: $RALPH_STATE_FILE" >&2
+  echo "[WARN]  Anvil loop: State file corrupted" >&2
+  echo "   File: $ANVIL_STATE_FILE" >&2
   echo "   Problem: 'iteration' field is not a valid number (got: '$ITERATION')" >&2
   echo "" >&2
   echo "   This usually means the state file was manually edited or corrupted." >&2
-  echo "   Ralph loop is stopping. Run /ralph-loop again to start fresh." >&2
-  rm "$RALPH_STATE_FILE"
+  echo "   Anvil loop is stopping. Run /anvil-loop again to start fresh." >&2
+  rm "$ANVIL_STATE_FILE"
   exit 0
 fi
 
 if [[ ! "$MAX_ITERATIONS" =~ ^[0-9]+$ ]]; then
-  echo "[WARN]  Ralph loop: State file corrupted" >&2
-  echo "   File: $RALPH_STATE_FILE" >&2
+  echo "[WARN]  Anvil loop: State file corrupted" >&2
+  echo "   File: $ANVIL_STATE_FILE" >&2
   echo "   Problem: 'max_iterations' field is not a valid number (got: '$MAX_ITERATIONS')" >&2
   echo "" >&2
   echo "   This usually means the state file was manually edited or corrupted." >&2
-  echo "   Ralph loop is stopping. Run /ralph-loop again to start fresh." >&2
-  rm "$RALPH_STATE_FILE"
+  echo "   Anvil loop is stopping. Run /anvil-loop again to start fresh." >&2
+  rm "$ANVIL_STATE_FILE"
   exit 0
 fi
 
@@ -145,17 +163,17 @@ emit_consolidation_and_exit() {
 
   # If learnings disabled or no learnings file exists, just clean up and exit
   if [[ "$LEARNINGS_ENABLED" != "true" ]] || [[ ! -f "$LEARNINGS_FILE" ]]; then
-    echo "$EXIT_REASON"
-    rm -f "$RALPH_STATE_FILE"
+    echo "$EXIT_REASON" >&2
+    rm -f "$ANVIL_STATE_FILE"
     exit 0
   fi
 
   # Build consolidation prompt
   local CONSOLIDATION_PROMPT
   CONSOLIDATION_PROMPT=$(cat <<'CONSOLIDATE_EOF'
-RALPH LOOP COMPLETE - Final consolidation step:
+ANVIL LOOP COMPLETE - Final consolidation step:
 
-You have accumulated iteration learnings during this ralph loop session.
+You have accumulated iteration learnings during this anvil loop session.
 Perform these consolidation steps before finishing:
 
 1. Read the learnings file at LEARNINGS_FILE_PLACEHOLDER
@@ -181,25 +199,25 @@ After consolidation, output '${COMPLETION_PROMISE}' on its own line to signal fi
   fi
 
   # Mark state as consolidating so the NEXT stop-hook invocation knows to exit
-  local TEMP_FILE="${RALPH_STATE_FILE}.tmp.$$"
-  if grep -q '^consolidating:' "$RALPH_STATE_FILE"; then
+  local TEMP_FILE="${ANVIL_STATE_FILE}.tmp.$$"
+  if grep -q '^consolidating:' "$ANVIL_STATE_FILE"; then
     # Already consolidating -- this is the second pass, exit cleanly
-    echo "$EXIT_REASON"
-    rm -f "$RALPH_STATE_FILE"
+    echo "$EXIT_REASON" >&2
+    rm -f "$ANVIL_STATE_FILE"
     rm -f "$LEARNINGS_FILE"  # Clean up if Claude didn't
     exit 0
   fi
 
   # Add consolidating flag to frontmatter
-  sed "s/^active: true/active: true\nconsolidating: true/" "$RALPH_STATE_FILE" > "$TEMP_FILE"
-  mv "$TEMP_FILE" "$RALPH_STATE_FILE"
+  sed "s/^active: true/active: true\nconsolidating: true/" "$ANVIL_STATE_FILE" > "$TEMP_FILE"
+  mv "$TEMP_FILE" "$ANVIL_STATE_FILE"
 
   echo "$EXIT_REASON (consolidating learnings...)" >&2
 
   # Block exit and inject consolidation prompt
   jq -n \
     --arg prompt "$CONSOLIDATION_PROMPT" \
-    --arg msg "[NOTE] Ralph loop: Consolidating learnings before exit" \
+    --arg msg "[NOTE] Anvil loop: Consolidating learnings before exit" \
     '{
       "decision": "block",
       "reason": $prompt,
@@ -211,15 +229,15 @@ After consolidation, output '${COMPLETION_PROMISE}' on its own line to signal fi
 # Check if we're in consolidation mode (second pass after consolidation prompt)
 CONSOLIDATING=$(echo "$FRONTMATTER" | grep '^consolidating:' | sed 's/consolidating: *//' || echo "false")
 if [[ "$CONSOLIDATING" == "true" ]]; then
-  echo "[OK] Ralph loop: Consolidation complete. Exiting."
-  rm -f "$RALPH_STATE_FILE"
+  echo "[OK] Anvil loop: Consolidation complete. Exiting." >&2
+  rm -f "$ANVIL_STATE_FILE"
   rm -f "$LEARNINGS_FILE"  # Clean up if Claude didn't
   exit 0
 fi
 
 # Check if max iterations reached
 if [[ $MAX_ITERATIONS -gt 0 ]] && [[ $ITERATION -ge $MAX_ITERATIONS ]]; then
-  emit_consolidation_and_exit "[STOP] Ralph loop: Max iterations ($MAX_ITERATIONS) reached."
+  emit_consolidation_and_exit "[STOP] Anvil loop: Max iterations ($MAX_ITERATIONS) reached."
 fi
 
 # --- Get last assistant output ---
@@ -246,20 +264,24 @@ else
   fi
 fi
 
+# Strip ANSI escape codes that could prevent passphrase matching
+LAST_OUTPUT=$(echo "$LAST_OUTPUT" | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g')
+
 if [[ -z "$LAST_OUTPUT" ]]; then
-  echo "[WARN]  Ralph loop: No assistant output found (neither hook JSON nor transcript)" >&2
-  echo "   Ralph loop is stopping." >&2
-  rm "$RALPH_STATE_FILE"
+  echo "[WARN]  Anvil loop: No assistant output found (neither hook JSON nor transcript)" >&2
+  echo "   Anvil loop is stopping." >&2
+  rm "$ANVIL_STATE_FILE"
   exit 0
 fi
 
 # Check for completion promise (only if set)
 if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
-  # Detection: check if the promise text appears on its own line.
-  # Uses plain-text exact-line matching (grep -Fx). XML tags are stripped
-  # by Claude Code's rendering pipeline, so only plain text works here.
-  if echo "$LAST_OUTPUT" | grep -qFx "$COMPLETION_PROMISE"; then
-    emit_consolidation_and_exit "[OK] Ralph loop: Completion promise detected: $COMPLETION_PROMISE"
+  # Detection: check if the promise text appears anywhere in output.
+  # Uses fixed-string substring match (grep -F). The ANVIL- prefix + 48 hex
+  # chars makes false positives essentially impossible, so exact-line (-x)
+  # matching is unnecessarily strict and fails when passphrase is embedded in text.
+  if echo "$LAST_OUTPUT" | grep -qF "$COMPLETION_PROMISE"; then
+    emit_consolidation_and_exit "[OK] Anvil loop: Completion promise detected: $COMPLETION_PROMISE"
   fi
 fi
 
@@ -268,19 +290,19 @@ NEXT_ITERATION=$((ITERATION + 1))
 
 # Extract prompt (everything after the SECOND --- line, which closes frontmatter)
 # Only skip the first two --- lines; preserve all subsequent --- lines as content
-PROMPT_TEXT=$(awk '/^---$/ && fm_count<2 {fm_count++; next} fm_count>=2' "$RALPH_STATE_FILE")
+PROMPT_TEXT=$(awk '/^---$/ && fm_count<2 {fm_count++; next} fm_count>=2' "$ANVIL_STATE_FILE")
 
 if [[ -z "$PROMPT_TEXT" ]]; then
-  echo "[WARN]  Ralph loop: State file corrupted or incomplete" >&2
-  echo "   File: $RALPH_STATE_FILE" >&2
+  echo "[WARN]  Anvil loop: State file corrupted or incomplete" >&2
+  echo "   File: $ANVIL_STATE_FILE" >&2
   echo "   Problem: No prompt text found" >&2
   echo "" >&2
   echo "   This usually means:" >&2
   echo "     - State file was manually edited" >&2
   echo "     - File was corrupted during writing" >&2
   echo "" >&2
-  echo "   Ralph loop is stopping. Run /ralph-loop again to start fresh." >&2
-  rm "$RALPH_STATE_FILE"
+  echo "   Anvil loop is stopping. Run /anvil-loop again to start fresh." >&2
+  rm "$ANVIL_STATE_FILE"
   exit 0
 fi
 
@@ -294,15 +316,15 @@ fi
 
 # Update iteration in frontmatter (portable across macOS and Linux)
 # Create temp file, then atomically replace
-TEMP_FILE="${RALPH_STATE_FILE}.tmp.$$"
-sed "s/^iteration: .*/iteration: $NEXT_ITERATION/" "$RALPH_STATE_FILE" > "$TEMP_FILE"
-mv "$TEMP_FILE" "$RALPH_STATE_FILE"
+TEMP_FILE="${ANVIL_STATE_FILE}.tmp.$$"
+sed "s/^iteration: .*/iteration: $NEXT_ITERATION/" "$ANVIL_STATE_FILE" > "$TEMP_FILE"
+mv "$TEMP_FILE" "$ANVIL_STATE_FILE"
 
 # Build system message with iteration count and completion promise info
 if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
-  SYSTEM_MSG="[LOOP] Ralph iteration $NEXT_ITERATION | To stop: output '$COMPLETION_PROMISE' on its own line (ONLY when genuinely complete)"
+  SYSTEM_MSG="[LOOP] Anvil iteration $NEXT_ITERATION | To stop: output '$COMPLETION_PROMISE' on its own line (ONLY when genuinely complete)"
 else
-  SYSTEM_MSG="[LOOP] Ralph iteration $NEXT_ITERATION | No completion promise set - loop runs infinitely"
+  SYSTEM_MSG="[LOOP] Anvil iteration $NEXT_ITERATION | No completion promise set - loop runs infinitely"
 fi
 
 # Add learnings reminder to system message

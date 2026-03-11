@@ -1,0 +1,90 @@
+ANVIL METHOD — Source Available License
+
+Copyright (c) 2026 Karl Toussaint (kt2saint / RebelSTS). All rights reserved.
+
+GRANT OF LICENSE
+
+Permission is hereby granted, free of charge, to any individual to use,
+copy, and modify the Anvil Method software and associated documentation
+(the "Software") for personal, educational, and non-commercial purposes,
+subject to the following conditions:
+
+RESTRICTIONS
+
+1. COMMERCIAL USE: Any commercial use, including but not limited to
+   selling, sublicensing, offering as a service, incorporating into
+   commercial products, or using in a revenue-generating capacity,
+   requires a separate commercial license obtained from the copyright
+   holder.
+
+2. ATTRIBUTION: All copies or substantial portions of the Software must
+   include this license notice and the following attribution:
+   "Anvil Method by Karl Toussaint (kt2saint)"
+
+3. REDISTRIBUTION: Redistribution of the Software, in whole or in part,
+   in source or binary form, must retain this license notice and may not
+   be done under a different license without written permission from the
+   copyright holder.
+
+4. NO SUBLICENSING: You may not sublicense the Software without written
+   permission from the copyright holder.
+
+5. DERIVATIVE WORKS: Derivative works must clearly indicate that they
+   are based on the Anvil Method and must include attribution to the
+   original author.
+
+ORIGINAL WORK DECLARATION
+
+The Anvil Method is a substantial original work that includes, but is
+not limited to:
+
+- Six-role adversarial orchestration system (EVALUATOR, Builder,
+  Challenger, Proxy, Researcher, Tester)
+- Dynamic complexity tier assessment (LIGHT, STANDARD, THOROUGH,
+  RIGOROUS, MAXIMAL)
+- Test-first sandbox methodology with before/after preservation
+- Cryptographic passphrase-based completion verification
+- Per-iteration learnings persistence system
+- Safe-mode pre-flight safety checks
+- Prompt template generator with OS-random passphrase generation
+- Self-referential development loop via stop-hook exploitation
+
+THIRD-PARTY ACKNOWLEDGMENTS
+
+The Anvil Method builds upon the following open-source work:
+
+- Ralph Wiggum iterative loop technique by Geoffrey Huntley
+  (https://ghuntley.com/ralph/) — The foundational concept of
+  self-referential AI development loops
+- Ralph Loop Plugin (MIT License) — Original Claude Code marketplace
+  plugin providing the stop-hook mechanism
+- Boris Cherny — Inspired the antagonist review pattern
+
+The original Ralph Loop Plugin is licensed under the MIT License.
+The MIT License text is included below as required:
+
+  MIT License
+  Permission is hereby granted, free of charge, to any person obtaining
+  a copy of this software and associated documentation files (the
+  "Software"), to deal in the Software without restriction, including
+  without limitation the rights to use, copy, modify, merge, publish,
+  distribute, sublicense, and/or sell copies of the Software, and to
+  permit persons to whom the Software is furnished to do so, subject to
+  the following conditions: The above copyright notice and this
+  permission notice shall be included in all copies or substantial
+  portions of the Software.
+
+DISCLAIMER
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+CONTACT
+
+For commercial licensing inquiries, contact: Karl Toussaint (kt2saint)
+GitHub: https://github.com/kt2saint-sec

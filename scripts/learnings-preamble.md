@@ -1,6 +1,6 @@
 BEFORE continuing your task, perform a 30-second retrospective:
 
-1. Read .claude/ralph-learnings.SESSION_ID_PLACEHOLDER.md (create if missing)
+1. Read .claude/anvil-learnings.SESSION_ID_PLACEHOLDER.md (create if missing)
 2. Append a brief entry for iteration PREV_ITERATION_PLACEHOLDER:
    - What was attempted
    - What worked / what failed

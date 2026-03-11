@@ -1,14 +1,14 @@
 ---
-description: "Explain Ralph Loop plugin and available commands"
+description: "Explain Anvil Loop plugin and available commands"
 ---
 
-# Ralph Loop Plugin Help
+# Anvil Loop Plugin Help
 
 Please explain the following to the user:
 
-## What is Ralph Loop?
+## What is Anvil Loop?
 
-Ralph Loop implements the Ralph Wiggum technique - an iterative development methodology based on continuous AI loops, pioneered by Geoffrey Huntley.
+Anvil Loop implements the iterative loop technique - an iterative development methodology based on continuous AI loops, pioneered by Geoffrey Huntley.
 
 **Core concept:**
 
@@ -33,15 +33,15 @@ The technique is described as "deterministically bad in an undeterministic world
 
 ## Available Commands
 
-### /ralph-loop <PROMPT> [OPTIONS]
+### /anvil-loop <PROMPT> [OPTIONS]
 
-Start a Ralph loop in your current session.
+Start a Anvil loop in your current session.
 
 **Usage:**
 
 ```
-/ralph-loop "Refactor the cache layer" --max-iterations 20
-/ralph-loop "Add tests" --completion-promise "TESTS COMPLETE"
+/anvil-loop "Refactor the cache layer" --max-iterations 20
+/anvil-loop "Add tests" --completion-promise "TESTS COMPLETE"
 ```
 
 **Options:**
@@ -51,7 +51,7 @@ Start a Ralph loop in your current session.
 
 **How it works:**
 
-1. Creates `.claude/ralph-loop.{SESSION_ID}.local.md` state file
+1. Creates `.claude/anvil-loop.{SESSION_ID}.local.md` state file
 2. You work on the task
 3. When you try to exit, stop hook intercepts
 4. Same prompt fed back
@@ -60,20 +60,20 @@ Start a Ralph loop in your current session.
 
 ---
 
-### /cancel-ralph
+### /cancel-anvil
 
-Cancel an active Ralph loop (removes the loop state file).
+Cancel an active Anvil loop (removes the loop state file).
 
 **Usage:**
 
 ```
-/cancel-ralph
+/cancel-anvil
 ```
 
 **How it works:**
 
 - Checks for active loop state file
-- Removes `.claude/ralph-loop.{SESSION_ID}.local.md`
+- Removes `.claude/anvil-loop.{SESSION_ID}.local.md`
 - Reports cancellation with iteration count
 
 ---
@@ -82,9 +82,9 @@ Cancel an active Ralph loop (removes the loop state file).
 
 ### Completion Passphrases
 
-A unique passphrase (RALPH- prefix + 48 hex chars from /dev/urandom) is auto-generated for every session. If you provide `--completion-promise "DONE"`, the actual completion signal becomes `PASSPHRASE::DONE`. Output the passphrase on its own line when genuinely complete.
+A unique passphrase (ANVIL- prefix + 48 hex chars from /dev/urandom) is auto-generated for every session. If you provide `--completion-promise "DONE"`, the actual completion signal becomes `PASSPHRASE::DONE`. Output the passphrase on its own line when genuinely complete.
 
-The passphrase system prevents false positives from common words appearing in code output. Without `--max-iterations` or `--completion-promise`, Ralph runs infinitely.
+The passphrase system prevents false positives from common words appearing in code output. Without `--max-iterations` or `--completion-promise`, Anvil runs infinitely.
 
 ### Self-Reference Mechanism
 
@@ -100,10 +100,10 @@ The "loop" doesn't mean Claude talks to itself. It means:
 ### Interactive Bug Fix
 
 ```
-/ralph-loop "Fix the token refresh logic in auth.ts." --completion-promise "ALL TESTS PASSING" --max-iterations 10
+/anvil-loop "Fix the token refresh logic in auth.ts." --completion-promise "ALL TESTS PASSING" --max-iterations 10
 ```
 
-You'll see Ralph:
+You'll see Anvil:
 
 - Attempt fixes
 - Run tests
@@ -111,7 +111,7 @@ You'll see Ralph:
 - Iterate on solution
 - In your current session
 
-## When to Use Ralph
+## When to Use Anvil
 
 **Good for:**
 
@@ -129,5 +129,5 @@ You'll see Ralph:
 
 ## Learn More
 
-- Original technique: https://ghuntley.com/ralph/
-- Ralph Orchestrator: https://github.com/mikeyobrien/ralph-orchestrator
+- Original technique: https://ghuntley.com/ralph/ (Ralph Wiggum loop by Geoffrey Huntley)
+- Original plugin: https://github.com/mikeyobrien/ralph-orchestrator (MIT License)

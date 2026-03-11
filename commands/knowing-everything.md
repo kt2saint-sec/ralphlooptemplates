@@ -6,15 +6,15 @@ Knowing everything you know now, what would you do differently? What
 institutional memory should be captured? Perform these updates:
 
 1. Update CLAUDE.md with any new rules discovered
-2. Update LEARNINGS.md with decisions and surprises
-3. Update MIGRATION-DECISIONS.md with architecture choices
-4. Identify stale documentation that needs correction
-5. Flag risks that aren't being tracked
+2. Identify stale documentation that needs correction
+3. Flag risks that aren't being tracked
+4. Check HTML diagrams in docs/ for drift from template text
+5. Verify all template versions are consistent with current architecture
 
 Format your response as:
 
 - **Would Do Differently**: [changes]
 - **New Rules**: [additions to CLAUDE.md]
-- **New Learnings**: [additions to LEARNINGS.md]
 - **Stale Docs**: [what needs updating]
+- **Template Drift**: [template versions that diverge from current architecture]
 - **Untracked Risks**: [what could break]

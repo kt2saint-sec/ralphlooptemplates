@@ -1,12 +1,12 @@
 {
-  "description": "Ralph Loop plugin stop hook for self-referential loops",
+  "description": "Anvil Loop stop hook for self-referential loops",
   "hooks": {
     "Stop": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/stop-hook.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/stop-hook-anvil.sh"
           }
         ]
       }

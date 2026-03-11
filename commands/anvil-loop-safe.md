@@ -1,5 +1,5 @@
 ---
-description: "Safe Ralph loop with mandatory safeguards for power-user environments"
+description: "Safe Anvil loop with mandatory safeguards for power-user environments"
 argument-hint: "PROMPT --max-iterations N --completion-promise TEXT"
 allowed-tools:
   [
@@ -9,7 +9,7 @@ allowed-tools:
   ]
 ---
 
-# Safe Ralph Loop
+# Safe Anvil Loop
 
 ## PRE-FLIGHT SAFETY CHECKS (Mandatory)
 
@@ -21,7 +21,7 @@ Before starting, verify ALL conditions:
 git rev-parse --git-dir > /dev/null 2>&1 && echo "GIT_OK" || echo "NOT_GIT_REPO"
 ```
 
-**If NOT_GIT_REPO:** STOP and say "ERROR: Must run from a git repository for safe Ralph loops"
+**If NOT_GIT_REPO:** STOP and say "ERROR: Must run from a git repository for safe Anvil loops"
 
 ### 2. Branch Check
 
@@ -29,7 +29,7 @@ git rev-parse --git-dir > /dev/null 2>&1 && echo "GIT_OK" || echo "NOT_GIT_REPO"
 git branch --show-current
 ```
 
-**If result is "main" or "master":** STOP and say "ERROR: Cannot run Ralph loop on protected branch. Create a feature branch first with `git checkout -b feature/your-task-name`"
+**If result is "main" or "master":** STOP and say "ERROR: Cannot run Anvil loop on protected branch. Create a feature branch first with `git checkout -b feature/your-task-name`"
 
 ### 3. Clean Working Directory Check
 
@@ -47,15 +47,15 @@ git status --porcelain
 
 ## EXECUTION
 
-If all checks pass, delegate to official ralph-loop:
+If all checks pass, delegate to official anvil-loop:
 
 ```
-/ralph-loop $ARGUMENTS
+/anvil-loop $ARGUMENTS
 ```
 
 ## SAFETY RULES DURING LOOP
 
-These commands are FORBIDDEN during Ralph loops:
+These commands are FORBIDDEN during Anvil loops:
 
 - `rm -rf`, `rm -r`, `rmdir` (destructive file operations)
 - `git push --force` (irreversible remote changes)
@@ -69,8 +69,8 @@ These commands are FORBIDDEN during Ralph loops:
 # Create feature branch first
 git checkout -b feature/refactor-auth
 
-# Run safe ralph
-/ralph-loop-safe "Refactor auth module to use JWT. Tests must pass." \
+# Run safe anvil
+/anvil-loop-safe "Refactor auth module to use JWT. Tests must pass." \
   --max-iterations 20 \
   --completion-promise "AUTH_REFACTORED"
 
@@ -80,8 +80,8 @@ git diff main
 
 ## CANCELLATION
 
-To cancel an active Ralph loop:
+To cancel an active Anvil loop:
 
 ```
-/cancel-ralph
+/cancel-anvil
 ```

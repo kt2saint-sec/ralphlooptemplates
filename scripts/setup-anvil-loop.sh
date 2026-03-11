@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Ralph Loop Setup Script
-# Creates state file for in-session Ralph loop
+# Anvil Loop Setup Script
+# Creates state file for in-session Anvil loop
 
 set -euo pipefail
 
@@ -16,10 +16,10 @@ while [[ $# -gt 0 ]]; do
   case $1 in
     -h|--help)
       cat << 'HELP_EOF'
-Ralph Loop - Interactive self-referential development loop
+Anvil Loop - Interactive self-referential development loop
 
 USAGE:
-  /ralph-loop [PROMPT...] [OPTIONS]
+  /anvil-loop [PROMPT...] [OPTIONS]
 
 ARGUMENTS:
   PROMPT...    Initial prompt to start the loop (can be multiple words without quotes)
@@ -31,7 +31,7 @@ OPTIONS:
   -h, --help                     Show this help message
 
 DESCRIPTION:
-  Starts a Ralph Loop in your CURRENT session. The stop hook prevents
+  Starts a Anvil Loop in your CURRENT session. The stop hook prevents
   exit and feeds your output back as input until completion or iteration limit.
 
   A unique passphrase is auto-generated for completion detection.
@@ -40,24 +40,24 @@ DESCRIPTION:
   Use this for:
   - Interactive iteration where you want to see progress
   - Tasks requiring self-correction and refinement
-  - Learning how Ralph works
+  - Learning how Anvil works
 
 EXAMPLES:
-  /ralph-loop Build a todo API --completion-promise 'DONE' --max-iterations 20
-  /ralph-loop --max-iterations 10 Fix the auth bug
-  /ralph-loop Refactor cache layer  (runs forever)
-  /ralph-loop --completion-promise 'TASK COMPLETE' Create a REST API
+  /anvil-loop Build a todo API --completion-promise 'DONE' --max-iterations 20
+  /anvil-loop --max-iterations 10 Fix the auth bug
+  /anvil-loop Refactor cache layer  (runs forever)
+  /anvil-loop --completion-promise 'TASK COMPLETE' Create a REST API
 
 STOPPING:
   Only by reaching --max-iterations or detecting --completion-promise
-  No manual stop - Ralph runs infinitely by default!
+  No manual stop - Anvil runs infinitely by default!
 
 MONITORING:
   # View current iteration:
-  grep '^iteration:' .claude/ralph-loop.*.local.md
+  grep '^iteration:' .claude/anvil-loop.*.local.md
 
   # View full state:
-  head -10 .claude/ralph-loop.*.local.md
+  head -10 .claude/anvil-loop.*.local.md
 HELP_EOF
       exit 0
       ;;
@@ -123,24 +123,24 @@ PROMPT="${PROMPT_PARTS[*]}"
 if [[ -z "$PROMPT" ]]; then
   echo "[ERROR] Error: No prompt provided" >&2
   echo "" >&2
-  echo "   Ralph needs a task description to work on." >&2
+  echo "   Anvil needs a task description to work on." >&2
   echo "" >&2
   echo "   Examples:" >&2
-  echo "     /ralph-loop Build a REST API for todos" >&2
-  echo "     /ralph-loop Fix the auth bug --max-iterations 20" >&2
-  echo "     /ralph-loop --completion-promise 'DONE' Refactor code" >&2
+  echo "     /anvil-loop Build a REST API for todos" >&2
+  echo "     /anvil-loop Fix the auth bug --max-iterations 20" >&2
+  echo "     /anvil-loop --completion-promise 'DONE' Refactor code" >&2
   echo "" >&2
-  echo "   For all options: /ralph-loop --help" >&2
+  echo "   For all options: /anvil-loop --help" >&2
   exit 1
 fi
 
 # --- Passphrase generation for completion promise ---
 # v3: Epoch hex (8 chars) provides structural temporal uniqueness + debuggability.
 # Random hex (40 chars) from /dev/urandom provides probabilistic uniqueness (2^160).
-# RALPH- prefix prevents false matches against hex strings in code output.
-# v2 was RALPH-hex48. v1 was WORD NNNN (deprecated session 15, LLM bias).
+# ANVIL- prefix prevents false matches against hex strings in code output.
+# v2 was ANVIL-hex48. v1 was WORD NNNN (deprecated session 15, LLM bias).
 generate_passphrase() {
-  echo "RALPH-$(printf '%08x' "$(date +%s)")-$(head -c 20 /dev/urandom | xxd -p | tr -d '\n')"
+  echo "ANVIL-$(printf '%08x' "$(date +%s)")-$(head -c 20 /dev/urandom | xxd -p | tr -d '\n')"
 }
 
 # Generate passphrase and build completion promise
@@ -168,7 +168,7 @@ else
   # Use short form (first 12 chars) to keep filename readable
   SESSION_ID="${SESSION_ID:0:12}"
 fi
-RALPH_STATE_FILE=".claude/ralph-loop.${SESSION_ID}.local.md"
+ANVIL_STATE_FILE=".claude/anvil-loop.${SESSION_ID}.local.md"
 
 # Verify session ID is non-empty (defensive)
 if [[ -z "$SESSION_ID" ]]; then
@@ -183,7 +183,7 @@ else
   COMPLETION_PROMISE_YAML="null"
 fi
 
-cat > "$RALPH_STATE_FILE" <<EOF
+cat > "$ANVIL_STATE_FILE" <<EOF
 ---
 active: true
 iteration: 1
@@ -199,7 +199,7 @@ EOF
 
 # Output setup message
 cat <<EOF
-[LOOP] Ralph loop activated in this session!
+[LOOP] Anvil loop activated in this session!
 
 Iteration: 1
 Max iterations: $(if [[ $MAX_ITERATIONS -gt 0 ]]; then echo $MAX_ITERATIONS; else echo "unlimited"; fi)
@@ -211,7 +211,7 @@ fed back to you. You'll see your previous work in files, creating a
 self-referential loop where you iteratively improve on the same task.
 
 Session ID: $SESSION_ID
-To monitor: head -10 $RALPH_STATE_FILE
+To monitor: head -10 $ANVIL_STATE_FILE
 
 [WARN]  WARNING: This loop continues until the passphrase is output or
     --max-iterations is reached.

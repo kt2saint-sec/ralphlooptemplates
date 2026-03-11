@@ -1,0 +1,1000 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Anvil Method — Architecture</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #0a0a0f;
+        color: #e0e0e0;
+        font-family:
+          "Segoe UI",
+          system-ui,
+          -apple-system,
+          sans-serif;
+        line-height: 1.6;
+        padding: 40px 20px;
+      }
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        font-size: 2.4em;
+        color: #f0f0f0;
+        text-align: center;
+        margin-bottom: 8px;
+        letter-spacing: 2px;
+      }
+      h1 span {
+        color: #ff6b35;
+      }
+      .subtitle {
+        text-align: center;
+        color: #888;
+        font-size: 1.05em;
+        margin-bottom: 50px;
+      }
+
+      h2 {
+        font-size: 1.5em;
+        color: #ff6b35;
+        margin: 50px 0 20px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #1a1a2e;
+      }
+      h3 {
+        font-size: 1.15em;
+        color: #ccc;
+        margin: 20px 0 10px;
+      }
+
+      .section {
+        background: #111118;
+        border: 1px solid #1a1a2e;
+        border-radius: 12px;
+        padding: 30px;
+        margin-bottom: 30px;
+      }
+
+      /* === Loop Diagram === */
+      .loop-diagram {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 0;
+        margin: 30px 0;
+      }
+      .loop-step {
+        background: #161622;
+        border: 1px solid #2a2a3e;
+        border-radius: 8px;
+        padding: 14px 18px;
+        text-align: center;
+        min-width: 150px;
+        max-width: 180px;
+      }
+      .loop-step .label {
+        font-size: 0.75em;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      .loop-step .text {
+        font-size: 0.95em;
+        color: #e0e0e0;
+        margin-top: 4px;
+      }
+      .loop-arrow {
+        font-size: 1.6em;
+        color: #ff6b35;
+        padding: 0 6px;
+      }
+      .loop-decision {
+        background: #1a1225;
+        border: 2px solid #7c3aed;
+        border-radius: 8px;
+        padding: 14px 18px;
+        text-align: center;
+        min-width: 180px;
+      }
+      .loop-decision .label {
+        font-size: 0.75em;
+        color: #a78bfa;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      .loop-decision .text {
+        font-size: 0.95em;
+        color: #c4b5fd;
+        margin-top: 4px;
+      }
+      .loop-return {
+        display: block;
+        text-align: center;
+        color: #ff6b35;
+        font-size: 0.9em;
+        margin-top: 15px;
+        padding: 8px;
+        border: 1px dashed #ff6b3544;
+        border-radius: 6px;
+        background: #1a120e;
+      }
+
+      /* === Role Grid === */
+      .role-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin: 20px 0;
+      }
+      .role-card {
+        background: #161622;
+        border-left: 4px solid;
+        border-radius: 0 8px 8px 0;
+        padding: 18px 20px;
+      }
+      .role-card.evaluator {
+        border-color: #f59e0b;
+      }
+      .role-card.challenger {
+        border-color: #ef4444;
+      }
+      .role-card.proxy {
+        border-color: #3b82f6;
+      }
+      .role-card.researcher {
+        border-color: #10b981;
+      }
+      .role-card.tester {
+        border-color: #8b5cf6;
+      }
+      .role-card.builder {
+        border-color: #f97316;
+      }
+      .role-name {
+        font-weight: 700;
+        font-size: 1em;
+        margin-bottom: 6px;
+      }
+      .role-card.evaluator .role-name {
+        color: #f59e0b;
+      }
+      .role-card.challenger .role-name {
+        color: #ef4444;
+      }
+      .role-card.proxy .role-name {
+        color: #3b82f6;
+      }
+      .role-card.researcher .role-name {
+        color: #10b981;
+      }
+      .role-card.tester .role-name {
+        color: #8b5cf6;
+      }
+      .role-card.builder .role-name {
+        color: #f97316;
+      }
+      .role-detail {
+        font-size: 0.85em;
+        color: #999;
+        margin: 3px 0;
+      }
+      .role-detail strong {
+        color: #ccc;
+      }
+      .role-tag {
+        display: inline-block;
+        font-size: 0.7em;
+        padding: 2px 8px;
+        border-radius: 4px;
+        margin-top: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .tag-gate {
+        background: #ef444422;
+        color: #fca5a5;
+      }
+      .tag-clean {
+        background: #8b5cf622;
+        color: #c4b5fd;
+      }
+      .tag-exit {
+        background: #f59e0b22;
+        color: #fcd34d;
+      }
+      .tag-neutral {
+        background: #10b98122;
+        color: #6ee7b7;
+      }
+      .tag-standin {
+        background: #3b82f622;
+        color: #93c5fd;
+      }
+      .tag-impl {
+        background: #f9731622;
+        color: #fdba74;
+      }
+
+      /* === Phase Flow === */
+      .phase-flow {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        margin: 20px 0;
+      }
+      .phase-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        position: relative;
+      }
+      .phase-item:not(:last-child)::after {
+        content: "";
+        position: absolute;
+        left: 23px;
+        top: 48px;
+        width: 2px;
+        height: calc(100% - 28px);
+        background: #2a2a3e;
+      }
+      .phase-num {
+        flex-shrink: 0;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.85em;
+        border: 2px solid;
+        background: #0a0a0f;
+        z-index: 1;
+      }
+      .phase-num.p0 {
+        border-color: #f59e0b;
+        color: #f59e0b;
+      }
+      .phase-num.p1 {
+        border-color: #ef4444;
+        color: #ef4444;
+      }
+      .phase-num.p15 {
+        border-color: #8b5cf6;
+        color: #8b5cf6;
+      }
+      .phase-num.p2 {
+        border-color: #f97316;
+        color: #f97316;
+      }
+      .phase-num.p3 {
+        border-color: #f97316;
+        color: #f97316;
+      }
+      .phase-num.p4 {
+        border-color: #22d3ee;
+        color: #22d3ee;
+      }
+      .phase-body {
+        flex: 1;
+        padding: 10px 0 24px;
+      }
+      .phase-title {
+        font-weight: 600;
+        color: #e0e0e0;
+        margin-bottom: 4px;
+      }
+      .phase-desc {
+        font-size: 0.88em;
+        color: #999;
+      }
+      .phase-roles {
+        display: flex;
+        gap: 6px;
+        margin-top: 6px;
+        flex-wrap: wrap;
+      }
+      .phase-role-tag {
+        font-size: 0.7em;
+        padding: 2px 8px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .prt-evaluator {
+        background: #f59e0b22;
+        color: #fcd34d;
+      }
+      .prt-challenger {
+        background: #ef444422;
+        color: #fca5a5;
+      }
+      .prt-proxy {
+        background: #3b82f622;
+        color: #93c5fd;
+      }
+      .prt-researcher {
+        background: #10b98122;
+        color: #6ee7b7;
+      }
+      .prt-tester {
+        background: #8b5cf622;
+        color: #c4b5fd;
+      }
+      .prt-builder {
+        background: #f9731622;
+        color: #fdba74;
+      }
+
+      /* === Tier Table === */
+      .tier-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+        font-size: 0.9em;
+      }
+      .tier-table th {
+        background: #1a1a2e;
+        color: #ccc;
+        padding: 12px 16px;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 2px solid #2a2a3e;
+      }
+      .tier-table td {
+        padding: 10px 16px;
+        border-bottom: 1px solid #1a1a2e;
+        color: #bbb;
+      }
+      .tier-table tr:hover td {
+        background: #16162222;
+      }
+      .tier-name {
+        font-weight: 700;
+      }
+      .tier-light .tier-name {
+        color: #34d399;
+      }
+      .tier-standard .tier-name {
+        color: #60a5fa;
+      }
+      .tier-thorough .tier-name {
+        color: #f59e0b;
+      }
+      .tier-rigorous .tier-name {
+        color: #f97316;
+      }
+      .tier-maximal .tier-name {
+        color: #ef4444;
+      }
+
+      /* === Passphrase === */
+      .passphrase-box {
+        background: #161622;
+        border: 1px solid #2a2a3e;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 20px 0;
+      }
+      .passphrase-example {
+        font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+        font-size: 0.95em;
+        color: #ff6b35;
+        background: #0a0a0f;
+        padding: 12px 16px;
+        border-radius: 6px;
+        margin: 12px 0;
+        border: 1px solid #ff6b3533;
+        word-break: break-all;
+      }
+      .passphrase-breakdown {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+        flex-wrap: wrap;
+      }
+      .pp-part {
+        background: #0a0a0f;
+        border: 1px solid #2a2a3e;
+        border-radius: 6px;
+        padding: 8px 14px;
+        text-align: center;
+      }
+      .pp-part .pp-label {
+        font-size: 0.7em;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .pp-part .pp-value {
+        font-family: monospace;
+        font-size: 0.9em;
+        color: #e0e0e0;
+        margin-top: 2px;
+      }
+
+      /* === Isolation Diagram === */
+      .isolation-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 2px;
+        margin: 20px 0;
+        background: #1a1a2e;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .iso-header {
+        background: #1a1a2e;
+        padding: 10px;
+        font-weight: 600;
+        font-size: 0.8em;
+        text-align: center;
+        color: #ccc;
+      }
+      .iso-cell {
+        padding: 8px 12px;
+        font-size: 0.78em;
+        text-align: center;
+        background: #111118;
+      }
+      .iso-yes {
+        color: #34d399;
+      }
+      .iso-no {
+        color: #ef4444;
+      }
+      .iso-role {
+        padding: 10px 12px;
+        font-weight: 600;
+        font-size: 0.82em;
+        background: #111118;
+      }
+
+      .footer {
+        text-align: center;
+        color: #555;
+        font-size: 0.85em;
+        margin-top: 50px;
+        padding-top: 20px;
+        border-top: 1px solid #1a1a2e;
+      }
+      .footer a {
+        color: #ff6b35;
+        text-decoration: none;
+      }
+
+      @media (max-width: 768px) {
+        .role-grid {
+          grid-template-columns: 1fr;
+        }
+        .loop-diagram {
+          flex-direction: column;
+        }
+        .loop-arrow {
+          transform: rotate(90deg);
+        }
+        .isolation-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>THE <span>ANVIL</span> METHOD</h1>
+      <p class="subtitle">
+        Compartmentalized adversarial development for AI agents
+      </p>
+
+      <!-- ======== SECTION 1: THE ANVIL LOOP ======== -->
+      <h2>1. The Anvil Loop</h2>
+      <div class="section">
+        <p>
+          A settings.json Stop hook intercepts every session exit. If a state
+          file exists, the same prompt is fed back — creating a self-referential
+          loop where Claude iterates on persistent file changes.
+        </p>
+
+        <div class="loop-diagram">
+          <div class="loop-step">
+            <div class="label">Start</div>
+            <div class="text">/anvil-loop<br />"Fix auth bug"</div>
+          </div>
+          <div class="loop-arrow">&rarr;</div>
+          <div class="loop-step">
+            <div class="label">State File</div>
+            <div class="text">anvil-loop.{SID}<br />.local.md</div>
+          </div>
+          <div class="loop-arrow">&rarr;</div>
+          <div class="loop-step">
+            <div class="label">Work</div>
+            <div class="text">Claude implements,<br />edits files</div>
+          </div>
+          <div class="loop-arrow">&rarr;</div>
+          <div class="loop-step">
+            <div class="label">Exit</div>
+            <div class="text">Claude tries<br />to stop</div>
+          </div>
+          <div class="loop-arrow">&rarr;</div>
+          <div class="loop-decision">
+            <div class="label">Stop Hook</div>
+            <div class="text">Passphrase<br />detected</div>
+          </div>
+        </div>
+
+        <div
+          style="
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+          "
+        >
+          <div style="text-align: center">
+            <div style="color: #34d399; font-weight: 600; margin-bottom: 4px">
+              YES &darr;
+            </div>
+            <div class="loop-step" style="border-color: #34d399">
+              <div class="label" style="color: #34d399">Complete</div>
+              <div class="text">Consolidate<br />learnings, exit</div>
+            </div>
+          </div>
+          <div style="text-align: center">
+            <div style="color: #ef4444; font-weight: 600; margin-bottom: 4px">
+              NO &darr;
+            </div>
+            <div class="loop-step" style="border-color: #ef4444">
+              <div class="label" style="color: #ef4444">Block</div>
+              <div class="text">Feed same prompt,<br />increment iteration</div>
+            </div>
+          </div>
+        </div>
+        <div class="loop-return">
+          &#8630; Loop back — Claude sees previous work in files and git history
+        </div>
+      </div>
+
+      <!-- ======== SECTION 2: THE 6-ROLE SYSTEM ======== -->
+      <h2>2. The 6-Role Template</h2>
+      <div class="section">
+        <h3>Information Compartmentalization</h3>
+        <p style="color: #999; margin-bottom: 16px">
+          No single role holds the full picture. Each knows only what it needs.
+          Bias cannot propagate across boundaries.
+        </p>
+
+        <div class="role-grid">
+          <div class="role-card evaluator">
+            <div class="role-name">EVALUATOR</div>
+            <div class="role-detail">
+              <strong>Knows:</strong> Task complexity — nothing else
+            </div>
+            <div class="role-detail">
+              <strong>Does:</strong> Scores difficulty across 5 dimensions, sets
+              tier, exits
+            </div>
+            <div class="role-detail">
+              <strong>Cannot:</strong> Implement, challenge, or decide
+            </div>
+            <span class="role-tag tag-exit">Scores &amp; exits</span>
+          </div>
+          <div class="role-card challenger">
+            <div class="role-name">CHALLENGER</div>
+            <div class="role-detail">
+              <strong>Knows:</strong> The goal + Builder's proposed approach
+            </div>
+            <div class="role-detail">
+              <strong>Does:</strong> Adversarial stress-testing, gates the
+              Builder
+            </div>
+            <div class="role-detail">
+              <strong>Cannot:</strong> Approve, decide, or implement
+            </div>
+            <span class="role-tag tag-gate">Gate only</span>
+          </div>
+          <div class="role-card proxy">
+            <div class="role-name">PROXY</div>
+            <div class="role-detail">
+              <strong>Knows:</strong> Goal + codebase conventions + project docs
+            </div>
+            <div class="role-detail">
+              <strong>Does:</strong> Answers as human stand-in, makes judgment
+              calls
+            </div>
+            <div class="role-detail">
+              <strong>Cannot:</strong> See tests, write code, override
+              Challenger
+            </div>
+            <span class="role-tag tag-standin">Human stand-in</span>
+          </div>
+          <div class="role-card researcher">
+            <div class="role-name">RESEARCHER</div>
+            <div class="role-detail">
+              <strong>Knows:</strong> Only the specific question asked
+            </div>
+            <div class="role-detail">
+              <strong>Does:</strong> Finds facts from docs, web, MCP — reports
+              with citations
+            </div>
+            <div class="role-detail">
+              <strong>Cannot:</strong> Make decisions, has no stake in outcome
+            </div>
+            <span class="role-tag tag-neutral">Unbiased</span>
+          </div>
+          <div class="role-card tester">
+            <div class="role-name">TESTER</div>
+            <div class="role-detail">
+              <strong>Knows:</strong> Goals document only — no discussion, no
+              rejected alternatives
+            </div>
+            <div class="role-detail">
+              <strong>Does:</strong> Writes behavior tests alone in sandbox
+              BEFORE implementation
+            </div>
+            <div class="role-detail">
+              <strong>Cannot:</strong> See Builder's code, communicate with
+              other roles
+            </div>
+            <span class="role-tag tag-clean">Clean room</span>
+          </div>
+          <div class="role-card builder">
+            <div class="role-name">BUILDER</div>
+            <div class="role-detail">
+              <strong>Knows:</strong> Goal + approach (survived Challenger) +
+              test results
+            </div>
+            <div class="role-detail">
+              <strong>Does:</strong> Implements in isolation, iterates against
+              test feedback
+            </div>
+            <div class="role-detail">
+              <strong>Cannot:</strong> See test source code, renegotiate goal
+            </div>
+            <span class="role-tag tag-impl">Implements</span>
+          </div>
+        </div>
+
+        <h3>Information Isolation Matrix</h3>
+        <div style="overflow-x: auto">
+          <table class="tier-table" style="min-width: 600px">
+            <thead>
+              <tr>
+                <th>Role</th>
+                <th>Goal</th>
+                <th>Approach</th>
+                <th>Tests</th>
+                <th>Code</th>
+                <th>Codebase</th>
+                <th>Discussion</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="font-weight: 600; color: #f59e0b">Evaluator</td>
+                <td class="iso-yes">task desc</td>
+                <td class="iso-no">no</td>
+                <td class="iso-no">no</td>
+                <td class="iso-no">no</td>
+                <td class="iso-no">no</td>
+                <td class="iso-no">no</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600; color: #ef4444">Challenger</td>
+                <td class="iso-yes">yes</td>
+                <td class="iso-yes">yes</td>
+                <td class="iso-no">no</td>
+                <td class="iso-no">review only</td>
+                <td class="iso-no">no</td>
+                <td class="iso-yes">yes</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600; color: #3b82f6">Proxy</td>
+                <td class="iso-yes">yes</td>
+                <td class="iso-yes">yes</td>
+                <td class="iso-no">no</td>
+                <td class="iso-no">no</td>
+                <td class="iso-yes">yes</td>
+                <td class="iso-yes">yes</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600; color: #10b981">Researcher</td>
+                <td class="iso-no">question only</td>
+                <td class="iso-no">no</td>
+                <td class="iso-no">no</td>
+                <td class="iso-no">no</td>
+                <td class="iso-yes">read-only</td>
+                <td class="iso-no">no</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600; color: #8b5cf6">Tester</td>
+                <td class="iso-yes">goals doc</td>
+                <td class="iso-no">no</td>
+                <td class="iso-yes">writes</td>
+                <td class="iso-no">no</td>
+                <td class="iso-no">no</td>
+                <td class="iso-no">no</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600; color: #f97316">Builder</td>
+                <td class="iso-yes">yes</td>
+                <td class="iso-yes">yes</td>
+                <td class="iso-yes">results only</td>
+                <td class="iso-yes">writes</td>
+                <td class="iso-yes">yes</td>
+                <td class="iso-no">limited</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Phase Flow</h3>
+        <div class="phase-flow">
+          <div class="phase-item">
+            <div class="phase-num p0">0</div>
+            <div class="phase-body">
+              <div class="phase-title">Complexity Assessment</div>
+              <div class="phase-desc">
+                Evaluator scores task across 5 dimensions. Assigns tier. Exits.
+              </div>
+              <div class="phase-roles">
+                <span class="phase-role-tag prt-evaluator">Evaluator</span>
+              </div>
+            </div>
+          </div>
+          <div class="phase-item">
+            <div class="phase-num p1">1</div>
+            <div class="phase-body">
+              <div class="phase-title">Adversarial Challenge</div>
+              <div class="phase-desc">
+                Challenger raises tier-scaled objections. Proxy answers as human
+                stand-in. Researcher consulted if &lt;75% confidence.
+              </div>
+              <div class="phase-roles">
+                <span class="phase-role-tag prt-challenger">Challenger</span>
+                <span class="phase-role-tag prt-proxy">Proxy</span>
+                <span class="phase-role-tag prt-researcher">Researcher</span>
+              </div>
+            </div>
+          </div>
+          <div class="phase-item">
+            <div class="phase-num p15">1.5</div>
+            <div class="phase-body">
+              <div class="phase-title">Clean-Room Test Design</div>
+              <div class="phase-desc">
+                Tester enters with goals document only. Writes behavior tests in
+                isolated sandbox. No access to discussion, approach, or rejected
+                alternatives.
+              </div>
+              <div class="phase-roles">
+                <span class="phase-role-tag prt-tester">Tester</span>
+              </div>
+            </div>
+          </div>
+          <div class="phase-item">
+            <div class="phase-num p2">2</div>
+            <div class="phase-body">
+              <div class="phase-title">Implementation</div>
+              <div class="phase-desc">
+                Builder implements against the goal. Cannot see test source —
+                only pass/fail results. Challenger reviews at milestones.
+                Challenger may escalate tier if new complexity discovered (UP
+                only).
+              </div>
+              <div class="phase-roles">
+                <span class="phase-role-tag prt-builder">Builder</span>
+                <span class="phase-role-tag prt-challenger">Challenger</span>
+              </div>
+            </div>
+          </div>
+          <div class="phase-item">
+            <div class="phase-num p3">3</div>
+            <div class="phase-body">
+              <div class="phase-title">Test &amp; Iterate</div>
+              <div class="phase-desc">
+                Builder receives graded test results with annotations. Iterates
+                independently — fix implementation, never the tests. Scratch
+                paper prevents regression.
+              </div>
+              <div class="phase-roles">
+                <span class="phase-role-tag prt-builder">Builder</span>
+              </div>
+            </div>
+          </div>
+          <div class="phase-item">
+            <div class="phase-num p4">4</div>
+            <div class="phase-body">
+              <div class="phase-title">Oral Defense</div>
+              <div class="phase-desc">
+                Builder proves understanding — not just passing tests. Scrutiny
+                scales with complexity tier. Must articulate integration risks
+                and edge cases.
+              </div>
+              <div class="phase-roles">
+                <span class="phase-role-tag prt-builder">Builder</span>
+                <span class="phase-role-tag prt-challenger">Challenger</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======== SECTION 3: ADAPTIVE COMPLEXITY ======== -->
+      <h2>3. Adaptive Complexity</h2>
+      <div class="section">
+        <p style="color: #999; margin-bottom: 16px">
+          The Evaluator reads the task and scores across 5 dimensions: spec
+          count, scope, risk level, dependency depth, and ambiguity. This score
+          determines how hard every other role pushes.
+        </p>
+
+        <table class="tier-table">
+          <thead>
+            <tr>
+              <th>Tier</th>
+              <th>Challenger</th>
+              <th>Tester</th>
+              <th>Iteration Budget</th>
+              <th>When</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="tier-light">
+              <td><span class="tier-name">LIGHT</span></td>
+              <td>3+ objections</td>
+              <td>3-5 tests</td>
+              <td>5</td>
+              <td>Single spec, single file, low risk</td>
+            </tr>
+            <tr class="tier-standard">
+              <td><span class="tier-name">STANDARD</span></td>
+              <td>5+ objections</td>
+              <td>5-10 tests</td>
+              <td>10</td>
+              <td>2-3 specs, single module</td>
+            </tr>
+            <tr class="tier-thorough">
+              <td><span class="tier-name">THOROUGH</span></td>
+              <td>7+ per-spec, proof</td>
+              <td>10-15 tests</td>
+              <td>15</td>
+              <td>3-5 specs, multi-module</td>
+            </tr>
+            <tr class="tier-rigorous">
+              <td><span class="tier-name">RIGOROUS</span></td>
+              <td>10+ blocking, proof</td>
+              <td>15-20 tests</td>
+              <td>20</td>
+              <td>5+ specs, full-stack</td>
+            </tr>
+            <tr class="tier-maximal">
+              <td><span class="tier-name">MAXIMAL</span></td>
+              <td>12+ with proof</td>
+              <td>20+ security tests</td>
+              <td>30</td>
+              <td>Cross-system, production, security</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p style="color: #999; font-size: 0.88em; margin-top: 12px">
+          For THOROUGH and above, the Challenger reviews each spec separately,
+          the challenge-test-build cycle repeats per spec, and the Challenger
+          demands proof for every claim — assertions alone are rejected. The
+          tier can only escalate — never downgrade.
+        </p>
+      </div>
+
+      <!-- ======== SECTION 4: THE PASSPHRASE ======== -->
+      <h2>4. The Passphrase</h2>
+      <div class="section">
+        <p style="color: #999; margin-bottom: 16px">
+          Every session generates a unique completion signal from OS randomness.
+          No LLM token bias. Exact full-line match detection.
+        </p>
+
+        <div class="passphrase-box">
+          <div style="color: #ccc; font-size: 0.9em; margin-bottom: 8px">
+            Example passphrase:
+          </div>
+          <div class="passphrase-example">
+            ANVIL-00000000-a3f7b2c94e1d08f6a2b3c5d7e1f4a09b2c4d6e8f
+          </div>
+          <div class="passphrase-breakdown">
+            <div class="pp-part">
+              <div class="pp-label">Prefix</div>
+              <div class="pp-value" style="color: #ff6b35">ANVIL-</div>
+            </div>
+            <div class="pp-part">
+              <div class="pp-label">Epoch Hex</div>
+              <div class="pp-value" style="color: #f59e0b">00000000</div>
+            </div>
+            <div class="pp-part">
+              <div class="pp-label">Separator</div>
+              <div class="pp-value">-</div>
+            </div>
+            <div class="pp-part" style="flex: 1">
+              <div class="pp-label">/dev/urandom (40 hex chars)</div>
+              <div class="pp-value" style="color: #34d399">
+                a3f7b2c94e1d08f6a2b3c5d7e1f4a09b2c4d6e8f
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div
+          style="
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 20px;
+          "
+        >
+          <div style="background: #161622; border-radius: 8px; padding: 16px">
+            <div style="color: #34d399; font-weight: 600; margin-bottom: 8px">
+              Generation
+            </div>
+            <div
+              style="
+                font-family: monospace;
+                font-size: 0.78em;
+                color: #999;
+                word-break: break-all;
+              "
+            >
+              echo "ANVIL-$(printf '%08x' "$(date +%s)")-$(head -c 20
+              /dev/urandom | xxd -p | tr -d '\n')"
+            </div>
+          </div>
+          <div style="background: #161622; border-radius: 8px; padding: 16px">
+            <div style="color: #60a5fa; font-weight: 600; margin-bottom: 8px">
+              Detection
+            </div>
+            <div style="font-family: monospace; font-size: 0.78em; color: #999">
+              grep -Fx "$COMPLETION_PROMISE"<br />
+              <span style="color: #666"
+                >Exact full-line match — no regex, no partials</span
+              >
+            </div>
+          </div>
+        </div>
+
+        <div
+          style="
+            margin-top: 16px;
+            padding: 12px 16px;
+            background: #1a120e;
+            border: 1px solid #ff6b3533;
+            border-radius: 6px;
+            font-size: 0.85em;
+            color: #bbb;
+          "
+        >
+          <strong style="color: #ff6b35">Why not words?</strong> LLMs have token
+          bias — word-based passphrases produced repeats (MARBLE, CONDOR,
+          LATTICE). OS randomness via
+          <code style="color: #999">/dev/urandom</code> has zero bias. The epoch
+          hex is decodable for audit:
+          <code style="color: #999">printf '%d\n' 0x00000000</code>
+        </div>
+      </div>
+
+      <div class="footer">
+        The Anvil Method &mdash; by
+        <a href="https://github.com/kt2saint-sec/anvil-method"
+          >RebelSTS (kt2saint)</a
+        >
+      </div>
+    </div>
+  </body>
+</html>
